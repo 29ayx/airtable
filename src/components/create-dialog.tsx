@@ -1,3 +1,5 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -10,11 +12,18 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Database, FileText } from "lucide-react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 interface CreateDialogProps {
   children: React.ReactNode;
 }
 
 export function CreateDialog({ children }: CreateDialogProps) {
+  const router = useRouter();
+
+  const handleBuildOnOwn = () => {
+    router.push('/base');
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -45,7 +54,7 @@ export function CreateDialog({ children }: CreateDialogProps) {
           </Card>
 
           {/* Card Two - Build an app on your own */}
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={handleBuildOnOwn}>
             <CardContent className="p-0">
               <div className="h-48 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
               <img src="/assets/start-with-data.png" alt="omni" className="w-full h-full object-cover" />

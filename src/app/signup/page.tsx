@@ -2,14 +2,24 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
+  const router = useRouter();
 
   // Email validation regex
   const isValidEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
+  };
+
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isValidEmail(email)) {
+      router.push('/dashboard');
+    }
   };
   return (
     <main
@@ -34,7 +44,7 @@ export default function SignupPage() {
           Welcome to Airtable
         </h1>
 
-        <form className="space-y-4" aria-label="Create your account" noValidate>
+        <form className="space-y-4" aria-label="Create your account" noValidate onSubmit={handleSubmit}>
           <div>
             <label
               htmlFor="work-email"

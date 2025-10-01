@@ -21,7 +21,12 @@ export default async function Home() {
           <h1 className="text-5xl font-extrabold tracking-tight sm:text-[5rem]">
             Airtable <span className="text-[hsl(280,100%,70%)]">Clone</span> App
           </h1>
-          <Button className="bg-white text-black w-96 h-12 hover:bg-green-200 text-lg">Login</Button>
+          <Link
+            className="bg-white text-black w-96 h-12 hover:bg-green-200 text-lg rounded-full text-center py-2"
+            href="/signup"
+          >
+            Login
+          </Link>
 
           {session?.user && <LatestPost />}
         </div>
