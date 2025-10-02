@@ -3,14 +3,10 @@
 import * as React from "react";
 import {
   IconCamera,
-
   IconDatabase,
   IconFileAi,
   IconFileDescription,
   IconFileWord,
-
-
-  IconStar,
   IconReport,
 } from "@tabler/icons-react";
 import { GoHome } from "react-icons/go";
@@ -25,7 +21,6 @@ import { CiStar } from "react-icons/ci";
 
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
-import { NavUser } from "@/components/nav-user";
 import { CreateDialog } from "@/components/create-dialog";
 import {
   Sidebar,

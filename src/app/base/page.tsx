@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
 export default function AirtableClone() {
-  const { user, name, email, image, isLoading } = useUser();
+  const { isLoading } = useUser();
   const { data: bases, isLoading: basesLoading } = api.base.getAll.useQuery();
   const router = useRouter();
 

@@ -1,9 +1,7 @@
 "use client"
 
 import React from 'react'
-import { flexRender } from '@tanstack/react-table'
-import { Button } from "@/components/ui/button"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus } from "lucide-react"
 import { ColumnHeader } from "./column-header"
 import { EditableCell } from "./editable-cell"
 
@@ -11,14 +9,12 @@ interface DataTableProps {
   table: any
   addRow: () => void
   addColumn: () => void
-  deleteRow: (rowId: string) => void
 }
 
 export const DataTable: React.FC<DataTableProps> = ({ 
   table, 
   addRow, 
-  addColumn, 
-  deleteRow 
+  addColumn
 }) => {
   // Handle global keyboard and mouse events
   React.useEffect(() => {

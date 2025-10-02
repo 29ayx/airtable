@@ -1,12 +1,11 @@
 "use client"
 
 import { AppSidebar } from "@/components/app-sidebar";
-import { SiteHeader } from "@/components/site-header";
 import { StartCards } from "@/components/start-cards";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Search, Command, Calendar, Clock, MoreVertical, Trash2 } from "lucide-react";
 import Image from "next/image";
@@ -16,13 +15,13 @@ import Link from "next/link";
 import { useState } from "react";
 
 export default function Page() {
-  const { user, name, email, image, isLoading } = useUser();
+  const { name, email, image, isLoading } = useUser();
   const { data: bases, isLoading: basesLoading, refetch } = api.base.getAll.useQuery();
   const [deletingBaseId, setDeletingBaseId] = useState<string | null>(null);
 
   const deleteBaseMutation = api.base.delete.useMutation({
     onSuccess: () => {
-      refetch();
+      void refetch();
       setDeletingBaseId(null);
     },
     onError: (error) => {
@@ -89,7 +88,7 @@ export default function Page() {
                     {image && (
                       <Image 
                         src={image} 
-                        alt={name || "User"} 
+                        alt={name ?? "User"} 
                         width={32} 
                         height={32} 
                         className="rounded-full"

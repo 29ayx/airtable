@@ -8,14 +8,12 @@ interface TableTabProps {
   table: any
   addRow: () => void
   addColumn: () => void
-  deleteRow: (rowId: string) => void
 }
 
 export const TableTab: React.FC<TableTabProps> = ({ 
   table, 
   addRow, 
-  addColumn, 
-  deleteRow 
+  addColumn
 }) => {
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-white">
@@ -25,7 +23,6 @@ export const TableTab: React.FC<TableTabProps> = ({
         table={table}
         addRow={addRow}
         addColumn={addColumn}
-        deleteRow={deleteRow}
       />
       
       {/* Footer */}

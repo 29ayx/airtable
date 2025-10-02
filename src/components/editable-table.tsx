@@ -19,10 +19,7 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
     tableData, 
     optimisticData, 
     isLoading, 
-    columns, 
-    rows,
-    editingCell,
-    setEditingCell 
+    rows
   } = useTableData(baseId);
 
   // State for managing multiple tables
@@ -76,7 +73,6 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
             table={table}
             addRow={(table.options.meta as any)?.addRow}
             addColumn={(table.options.meta as any)?.addColumn}
-            deleteRow={(table.options.meta as any)?.deleteRow}
           />
           
           {/* Footer */}

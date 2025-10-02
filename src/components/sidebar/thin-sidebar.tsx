@@ -4,11 +4,10 @@ import React from 'react'
 import { useUser } from "@/hooks/use-session"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { ChevronDown, Plus, Search, Grid3x3, HelpCircle, Bell } from "lucide-react"
+import { HelpCircle, Bell } from "lucide-react"
 
 export const ThinSidebar: React.FC = () => {
-  const { user, name, email, image } = useUser();
+  const { name, image } = useUser();
   const router = useRouter();
 
   const handleLogoClick = () => {
@@ -39,7 +38,7 @@ export const ThinSidebar: React.FC = () => {
           <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-600">
             <Image
               src={image}
-              alt={name || "User"}
+              alt={name ?? "User"}
               width={32}
               height={32}
               className="w-full h-full object-cover"
@@ -48,7 +47,7 @@ export const ThinSidebar: React.FC = () => {
         ) : (
           <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
             <span className="text-white text-xs font-medium">
-              {name?.charAt(0)?.toUpperCase() || "U"}
+              {name?.charAt(0)?.toUpperCase() ?? "U"}
             </span>
           </div>
         )}

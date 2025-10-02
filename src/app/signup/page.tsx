@@ -25,7 +25,7 @@ export default function SignupPage() {
 
   // Handle Google login
   const handleGoogleLogin = () => {
-    signIn('google', { callbackUrl: '/dashboard' });
+    void signIn('google', { callbackUrl: '/dashboard' });
   };
   return (
     <main

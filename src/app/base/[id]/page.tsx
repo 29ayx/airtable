@@ -7,7 +7,7 @@ import { api } from "@/trpc/react"
 import { useParams } from "next/navigation"
 
 export default function BasePage() {
-  const { user, name, email, image, isLoading } = useUser();
+  const { isLoading } = useUser();
   const params = useParams();
   const baseId = params.id as string;
   
