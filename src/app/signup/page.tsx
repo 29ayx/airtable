@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -20,6 +21,11 @@ export default function SignupPage() {
     if (isValidEmail(email)) {
       router.push('/dashboard');
     }
+  };
+
+  // Handle Google login
+  const handleGoogleLogin = () => {
+    signIn('google', { callbackUrl: '/dashboard' });
   };
   return (
     <main
@@ -97,6 +103,7 @@ export default function SignupPage() {
                type="button"
                className="flex w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-normal text-black shadow-sm hover:shadow-md transition-shadow"
                aria-label="Continue with Google"
+               onClick={handleGoogleLogin}
              >
               <div className="my-0.5 mr-2 flex h-5 w-5 items-center justify-center bg-white">
                 <Image

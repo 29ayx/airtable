@@ -13,15 +13,33 @@ import { Badge } from "@/components/ui/badge"
 import { Database, FileText } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { api } from "@/trpc/react"
 interface CreateDialogProps {
   children: React.ReactNode;
 }
 
 export function CreateDialog({ children }: CreateDialogProps) {
   const router = useRouter();
+  const [isCreating, setIsCreating] = useState(false);
+  
+  const createBase = api.base.create.useMutation({
+    onSuccess: (base) => {
+      if (base) {
+        router.push(`/base/${base.id}`);
+      }
+    },
+  });
 
-  const handleBuildOnOwn = () => {
-    router.push('/base');
+  const handleBuildOnOwn = async () => {
+    setIsCreating(true);
+    try {
+      await createBase.mutateAsync({
+        name: "Untitled Base",
+      });
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -60,7 +78,9 @@ export function CreateDialog({ children }: CreateDialogProps) {
               <img src="/assets/start-with-data.png" alt="omni" className="w-full h-full object-cover" />
               </div>
               <div className="p-3">
-                <h3 className="font-semibold text-lg mb-1">Build an app on your own</h3>
+                <h3 className="font-semibold text-lg mb-1">
+                  {isCreating ? "Creating..." : "Build an app on your own"}
+                </h3>
                 <p className="text-sm text-gray-600">
                   Start with a blank app and build your ideal workflow.
                 </p>

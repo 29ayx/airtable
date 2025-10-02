@@ -43,6 +43,8 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useUser } from "@/hooks/use-session"
+import { api } from "@/trpc/react"
 
 // Types
 interface TableData {
@@ -70,7 +72,7 @@ const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, table }
   const [editValue, setEditValue] = useState(value || '')
 
   const handleSave = () => {
-    table.options.meta?.updateData(row.index, column.id, editValue)
+    table.options.meta?.updateData(row.original.id, column.id, editValue)
     setIsEditing(false)
   }
 
@@ -180,82 +182,196 @@ const ColumnHeader: React.FC<ColumnHeaderProps> = ({ column, table }) => {
 }
 
 // Main Table Component
-export default function EditableTable() {
-  // Initial data
-  const [data, setData] = useState<TableData[]>([
-    { id: '1', name: 'Task 1', notes: '', assignee: '', status: '', attachments: '' },
-    { id: '2', name: 'Task 2', notes: '', assignee: '', status: '', attachments: '' },
-    { id: '3', name: 'Task 3', notes: '', assignee: '', status: '', attachments: '' },
-    { id: '4', name: 'Task 4', notes: '', assignee: '', status: '', attachments: '' },
-    { id: '5', name: 'Task 5', notes: '', assignee: '', status: '', attachments: '' },
-  ])
+interface EditableTableProps {
+  baseId: string;
+  baseName?: string;
+}
 
-  const [columns, setColumns] = useState<Column[]>([
-    { id: 'name', name: 'Name', type: 'text' },
-    { id: 'notes', name: 'Notes', type: 'text' },
-    { id: 'assignee', name: 'Assignee', type: 'text' },
-    { id: 'status', name: 'Status', type: 'select', options: ['To Do', 'In Progress', 'Done'] },
-    { id: 'attachments', name: 'Attachments', type: 'attachment' },
-  ])
-
+export default function EditableTable({ baseId, baseName = "Untitled Base" }: EditableTableProps) {
+  const { user, name, email, image } = useUser();
+  
+  // ALL HOOKS MUST BE AT THE TOP - NO EXCEPTIONS
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  
+  // Local optimistic state for instant UI updates
+  const [optimisticData, setOptimisticData] = useState<{
+    columns: any[];
+    rows: any[];
+  } | null>(null);
+  
+  // Fetch table data from database
+  const { data: tableData, isLoading, refetch } = api.table.getTableData.useQuery({ baseId });
+  
+  // Update optimistic state when real data changes
+  React.useEffect(() => {
+    if (tableData) {
+      setOptimisticData({
+        columns: tableData.columns,
+        rows: tableData.rows,
+      });
+    }
+  }, [tableData]);
+  
+  // Mutations with optimistic updates
+  const addColumnMutation = api.table.addColumn.useMutation({
+    onSuccess: () => refetch(),
+  });
+  
+  const deleteColumnMutation = api.table.deleteColumn.useMutation({
+    onSuccess: () => refetch(),
+  });
+  
+  const updateColumnNameMutation = api.table.updateColumnName.useMutation({
+    onSuccess: () => refetch(),
+  });
+  
+  const addRowMutation = api.table.addRow.useMutation({
+    onSuccess: () => refetch(),
+  });
+  
+  const deleteRowMutation = api.table.deleteRow.useMutation({
+    onSuccess: () => refetch(),
+  });
+  
+  const updateCellMutation = api.table.updateCell.useMutation({
+    onSuccess: () => refetch(),
+  });
 
-  // Table meta functions
-  const updateData = useCallback((rowIndex: number, columnId: string, value: any) => {
-    setData(prev => prev.map((row, index) => 
-      index === rowIndex ? { ...row, [columnId]: value } : row
-    ))
-  }, [])
+  // Table meta functions with OPTIMISTIC UPDATES for instant UI
+  const updateData = useCallback((rowId: string, columnId: string, value: any) => {
+    // Update UI instantly
+    setOptimisticData(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        rows: prev.rows.map(row => 
+          row.id === rowId ? { ...row, [columnId]: value || "" } : row
+        )
+      };
+    });
+    
+    // Update database in background
+    updateCellMutation.mutate({
+      baseId,
+      rowId,
+      columnId,
+      value: value || "",
+    });
+  }, [baseId, updateCellMutation])
 
   const addRow = useCallback(() => {
-    const newId = (data.length + 1).toString()
-    const newRow: TableData = { id: newId }
-    columns.forEach(col => {
-      newRow[col.id] = ''
-    })
-    setData(prev => [...prev, newRow])
-  }, [data.length, columns])
+    const newRowId = crypto.randomUUID();
+    
+    // Update UI instantly
+    setOptimisticData(prev => {
+      if (!prev) return prev;
+      const newRow: any = { id: newRowId };
+      prev.columns.forEach((col: any) => {
+        newRow[col.id] = "";
+      });
+      return {
+        ...prev,
+        rows: [...prev.rows, newRow]
+      };
+    });
+    
+    // Update database in background
+    addRowMutation.mutate({ baseId });
+  }, [baseId, addRowMutation])
 
-  const deleteRow = useCallback((rowIndex: number) => {
-    setData(prev => prev.filter((_, index) => index !== rowIndex))
-  }, [])
+  const deleteRow = useCallback((rowId: string) => {
+    // Update UI instantly
+    setOptimisticData(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        rows: prev.rows.filter(row => row.id !== rowId)
+      };
+    });
+    
+    // Update database in background
+    deleteRowMutation.mutate({ baseId, rowId });
+  }, [baseId, deleteRowMutation])
 
   const addColumn = useCallback(() => {
-    const newColumnId = `column_${columns.length + 1}`
-    const newColumn: Column = { id: newColumnId, name: 'New Column', type: 'text' }
-    setColumns(prev => [...prev, newColumn])
+    const newColumnId = crypto.randomUUID();
     
-    // Add empty values for the new column to all existing rows
-    setData(prev => prev.map(row => ({ ...row, [newColumnId]: '' })))
-  }, [columns.length])
+    // Update UI instantly
+    setOptimisticData(prev => {
+      if (!prev) return prev;
+      const newColumn = {
+        id: newColumnId,
+        name: "New Column",
+        type: "text",
+        order: prev.columns.length
+      };
+      return {
+        columns: [...prev.columns, newColumn],
+        rows: prev.rows.map(row => ({ ...row, [newColumnId]: "" }))
+      };
+    });
+    
+    // Update database in background
+    addColumnMutation.mutate({
+      baseId,
+      name: "New Column",
+      type: "text",
+    });
+  }, [baseId, addColumnMutation])
 
   const deleteColumn = useCallback((columnId: string) => {
-    if (columns.length <= 1) return // Don't delete the last column
+    if (optimisticData?.columns && optimisticData.columns.length <= 1) return;
     
-    setColumns(prev => prev.filter(col => col.id !== columnId))
-    setData(prev => prev.map(row => {
-      const { [columnId]: deleted, ...rest } = row
-      return rest as TableData
-    }))
-  }, [columns.length])
+    // Update UI instantly
+    setOptimisticData(prev => {
+      if (!prev) return prev;
+      return {
+        columns: prev.columns.filter(col => col.id !== columnId),
+        rows: prev.rows.map(row => {
+          const { [columnId]: deleted, ...rest } = row;
+          return rest;
+        })
+      };
+    });
+    
+    // Update database in background
+    deleteColumnMutation.mutate({ baseId, columnId });
+  }, [baseId, optimisticData?.columns, deleteColumnMutation])
 
   const updateColumnName = useCallback((columnId: string, newName: string) => {
-    setColumns(prev => prev.map(col => 
-      col.id === columnId ? { ...col, name: newName } : col
-    ))
-  }, [])
+    // Update UI instantly
+    setOptimisticData(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        columns: prev.columns.map(col => 
+          col.id === columnId ? { ...col, name: newName } : col
+        )
+      };
+    });
+    
+    // Update database in background
+    updateColumnNameMutation.mutate({
+      baseId,
+      columnId,
+      name: newName,
+    });
+  }, [baseId, updateColumnNameMutation])
 
-  // Create columns dynamically
-  const tableColumns = useMemo<ColumnDef<TableData>[]>(() => {
-    const cols: ColumnDef<TableData>[] = columns.map(col => ({
+  // Create columns dynamically - useMemo must be at top level
+  const tableColumns = useMemo<ColumnDef<any>[]>(() => {
+    const columns = optimisticData?.columns || tableData?.columns || [];
+    if (!columns.length) return [];
+    
+    const cols: ColumnDef<any>[] = columns.map((col: any) => ({
       id: col.id,
       header: col.name,
       accessorKey: col.id,
       size: 150,
       minSize: 100,
       maxSize: 300,
-      cell: ({ getValue, row, column, table }) => (
+      cell: ({ getValue, row, column, table }: any) => (
         <EditableCell
           value={getValue()}
           row={row}
@@ -266,10 +382,11 @@ export default function EditableTable() {
     }))
 
     return cols
-  }, [columns])
+  }, [optimisticData?.columns, tableData?.columns])
 
+  // useReactTable hook MUST be at top level too
   const table = useReactTable({
-    data,
+    data: optimisticData?.rows || tableData?.rows || [],
     columns: tableColumns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -292,6 +409,21 @@ export default function EditableTable() {
     },
   })
 
+  // Early returns AFTER ALL HOOKS
+  if (isLoading && !optimisticData) {
+    return <div className="flex items-center justify-center min-h-screen">Loading table...</div>;
+  }
+
+  if (!tableData && !optimisticData) {
+    return <div className="flex items-center justify-center min-h-screen">Table not found</div>;
+  }
+
+  // Use optimistic data if available, otherwise fall back to real data
+  const displayData = optimisticData || tableData;
+  const columns = displayData?.columns || [];
+  const rows = displayData?.rows || [];
+  const tableInfo = tableData?.table || null;
+
   return (
     <div className="flex h-screen flex-col bg-white">
       {/* Top Navigation Bar */}
@@ -304,7 +436,7 @@ export default function EditableTable() {
 
           {/* Base Name */}
           <button className="flex items-center gap-1 text-sm font-semibold text-gray-900 hover:bg-gray-100 rounded px-2 py-1">
-            Untitled Base
+            {baseName}
             <ChevronDown className="h-4 w-4" />
           </button>
         </div>
@@ -319,6 +451,16 @@ export default function EditableTable() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            {image && (
+              <img 
+                src={image} 
+                alt={name || "User"} 
+                className="w-6 h-6 rounded-full"
+              />
+            )}
+            <span className="text-sm font-medium">{name}</span>
+          </div>
           <Button variant="ghost" size="icon" className="h-8 w-8">
             <LogOut className="h-4 w-4" />
           </Button>
@@ -441,9 +583,9 @@ export default function EditableTable() {
           <div className="flex-1 overflow-auto bg-gray-200 p-4">
             <table className="w-full border-collapse bg-white shadow-sm">
               <thead>
-                {table.getHeaderGroups().map(headerGroup => (
+                {table.getHeaderGroups().map((headerGroup: any) => (
                   <tr key={headerGroup.id} className="bg-gray-50 group">
-                    {headerGroup.headers.map(header => (
+                    {headerGroup.headers.map((header: any) => (
                       <th
                         key={header.id}
                         className="border-r border-b border-gray-200 px-3 py-2 text-left relative"
@@ -481,9 +623,9 @@ export default function EditableTable() {
                 ))}
               </thead>
               <tbody>
-                {table.getRowModel().rows.map(row => (
+                {table.getRowModel().rows.map((row: any) => (
                   <tr key={row.id} className="group hover:bg-gray-50">
-                    {row.getVisibleCells().map(cell => (
+                    {row.getVisibleCells().map((cell: any) => (
                       <td
                         key={cell.id}
                         className="border-r border-b border-gray-200 px-3 py-1 h-9"
@@ -491,8 +633,17 @@ export default function EditableTable() {
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
-                    {/* Empty cell for add column button alignment */}
-                    <td className="border-b border-gray-200 px-3 py-1 h-9 w-12"></td>
+                    {/* Delete row button */}
+                    <td className="border-b border-gray-200 px-3 py-1 h-9 w-12">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                        onClick={() => deleteRow(row.original.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </td>
                   </tr>
                 ))}
                 {/* Add Row Template - Single Row Spanning All Columns */}
@@ -516,7 +667,12 @@ export default function EditableTable() {
 
           {/* Footer */}
           <div className="border-t border-gray-200 px-4 py-2 flex items-center justify-end">
-            <span className="text-xs text-gray-500">{data.length} records</span>
+            <span className="text-xs text-gray-500">
+              {rows.length} records
+              {optimisticData && tableData && optimisticData !== tableData && (
+                <span className="ml-2 text-blue-500">• Syncing...</span>
+              )}
+            </span>
           </div>
         </main>
       </div>

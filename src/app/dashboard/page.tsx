@@ -1,3 +1,5 @@
+"use client"
+
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { StartCards } from "@/components/start-cards";
@@ -7,10 +9,20 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Command, Calendar, Clock } from "lucide-react";
 import Image from "next/image";
+import { useUser } from "@/hooks/use-session";
+import { api } from "@/trpc/react";
+import Link from "next/link";
 
 import data from "./data.json";
 
 export default function Page() {
+  const { user, name, email, image, isLoading } = useUser();
+  const { data: bases, isLoading: basesLoading } = api.base.getAll.useQuery();
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
   return (
     <SidebarProvider
       style={
@@ -54,7 +66,24 @@ export default function Page() {
           <div className="@container/main flex flex-1 flex-col gap-2 p-8">
             <div className="flex flex-col gap-6 py-2 md:gap-6 md:py-4">
               <div className="px-4 lg:px-6">
-                <h1 className="text-2xl font-semibold">Home</h1>
+                <div className="flex items-center justify-between">
+                  <h1 className="text-2xl font-semibold">Home</h1>
+                  <div className="flex items-center gap-3">
+                    {image && (
+                      <Image 
+                        src={image} 
+                        alt={name || "User"} 
+                        width={32} 
+                        height={32} 
+                        className="rounded-full"
+                      />
+                    )}
+                    <div className="text-right">
+                      <p className="text-sm font-medium">{name}</p>
+                      <p className="text-xs text-gray-500">{email}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* First Section - Start Cards */}
@@ -62,24 +91,34 @@ export default function Page() {
                 <StartCards />
               </div>
 
-              {/* Second Section - Opened Anytime */}
+              {/* Second Section - User Bases */}
               <div className="px-4 lg:px-6">
-                <h2 className="text-sm mb-4 text-gray-500">Opened Anytime</h2>
+                <h2 className="text-sm mb-4 text-gray-500">Your Bases</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer max-h-[85px] max-w-[270px]">
-                    <CardContent className="p-4 h-full">
-                      <div className="flex items-center gap-4 h-full">
-                        <Calendar className="h-8 w-8 text-blue-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-base truncate">Project Calendar</h3>
-                          <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-                            <Clock className="h-3 w-3" />
-                            <span>Opened 1 day ago</span>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  {basesLoading ? (
+                    <div>Loading bases...</div>
+                  ) : bases && bases.length > 0 ? (
+                    bases.map((base) => (
+                      <Link key={base.id} href={`/base/${base.id}`}>
+                        <Card className="hover:shadow-md transition-shadow cursor-pointer max-h-[85px] max-w-[270px]">
+                          <CardContent className="p-4 h-full">
+                            <div className="flex items-center gap-4 h-full">
+                              <Calendar className="h-8 w-8 text-blue-600 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-base truncate">{base.name}</h3>
+                                <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                                  <Clock className="h-3 w-3" />
+                                  <span>Created {new Date(base.createdAt).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="text-gray-500 text-sm">No bases created yet. Create your first base!</div>
+                  )}
                 </div>
               </div>
             </div>

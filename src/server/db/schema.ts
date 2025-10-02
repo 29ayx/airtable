@@ -106,3 +106,136 @@ export const verificationTokens = createTable(
   }),
   (t) => [primaryKey({ columns: [t.identifier, t.token] })],
 );
+
+// Bases/Tables schema
+export const bases = createTable(
+  "base",
+  (d) => ({
+    id: d
+      .varchar({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: d.varchar({ length: 255 }).notNull(),
+    description: d.text(),
+    userId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => users.id),
+    createdAt: d
+      .timestamp({ withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: d.timestamp({ withTimezone: true }).$onUpdate(() => new Date()),
+  }),
+  (t) => [
+    index("base_user_id_idx").on(t.userId),
+    index("base_name_idx").on(t.name),
+  ],
+);
+
+export const baseRelations = relations(bases, ({ one, many }) => ({
+  user: one(users, { fields: [bases.userId], references: [users.id] }),
+  tables: many(tables),
+}));
+
+// Tables schema - Each base can have multiple tables
+export const tables = createTable(
+  "table",
+  (d) => ({
+    id: d
+      .varchar({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: d.varchar({ length: 255 }).notNull(),
+    baseId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => bases.id),
+    createdAt: d
+      .timestamp({ withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: d.timestamp({ withTimezone: true }).$onUpdate(() => new Date()),
+  }),
+  (t) => [
+    index("table_base_id_idx").on(t.baseId),
+    index("table_name_idx").on(t.name),
+  ],
+);
+
+export const tableRelations = relations(tables, ({ one, many }) => ({
+  base: one(bases, { fields: [tables.baseId], references: [bases.id] }),
+  columns: many(columns),
+  cells: many(cells),
+}));
+
+// Columns schema - Each table can have multiple columns
+export const columns = createTable(
+  "column",
+  (d) => ({
+    id: d
+      .varchar({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: d.varchar({ length: 255 }).notNull(),
+    type: d.varchar({ length: 50 }).notNull().default("text"), // text, number, select, date, etc.
+    tableId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => tables.id),
+    order: d.integer().notNull().default(0),
+    createdAt: d
+      .timestamp({ withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  }),
+  (t) => [
+    index("column_table_id_idx").on(t.tableId),
+    index("column_order_idx").on(t.tableId, t.order),
+  ],
+);
+
+export const columnRelations = relations(columns, ({ one, many }) => ({
+  table: one(tables, { fields: [columns.tableId], references: [tables.id] }),
+  cells: many(cells),
+}));
+
+// Cells schema - Store individual cell data efficiently
+export const cells = createTable(
+  "cell",
+  (d) => ({
+    id: d
+      .varchar({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    tableId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => tables.id),
+    columnId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => columns.id),
+    rowId: d.varchar({ length: 255 }).notNull(), // Custom row identifier
+    value: d.text(), // Store as text, parse based on column type
+    createdAt: d
+      .timestamp({ withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: d.timestamp({ withTimezone: true }).$onUpdate(() => new Date()),
+  }),
+  (t) => [
+    index("cell_table_row_idx").on(t.tableId, t.rowId),
+    index("cell_column_idx").on(t.columnId),
+    index("cell_row_column_idx").on(t.rowId, t.columnId),
+  ],
+);
+
+export const cellRelations = relations(cells, ({ one }) => ({
+  table: one(tables, { fields: [cells.tableId], references: [tables.id] }),
+  column: one(columns, { fields: [cells.columnId], references: [columns.id] }),
+}));

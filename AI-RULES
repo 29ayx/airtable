@@ -3,3 +3,5 @@ We are using pnpm
 Never run any git command until asked
 Never run the server until asked
 We always use pnpm for everything
+Write the minimal working code all the time, bare metal, just get's the job done
+No advance coding, no multiple verifications
