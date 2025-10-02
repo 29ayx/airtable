@@ -9,9 +9,9 @@ import { EditableCell } from "./editable-cell"
 
 interface DataTableProps {
   table: any
-  addRow: () => void
-  addColumn: () => void
-  deleteRow: (rowId: string) => void
+  addRow: () => Promise<void>
+  addColumn: () => Promise<void>
+  deleteRow: (rowId: string) => Promise<void>
 }
 
 export const DataTable: React.FC<DataTableProps> = ({ 
@@ -20,25 +20,6 @@ export const DataTable: React.FC<DataTableProps> = ({
   addColumn, 
   deleteRow 
 }) => {
-  // Add cell renderer to columns dynamically
-  const columnsWithCellRenderer = table.getAllColumns().map((column: any) => {
-    if (column.columnDef.cell) return column; // Already has cell renderer
-    
-    return {
-      ...column,
-      columnDef: {
-        ...column.columnDef,
-        cell: ({ getValue, row, column, table }: any) => (
-          <EditableCell
-            value={getValue()}
-            row={row}
-            column={column}
-            table={table}
-          />
-        ),
-      }
-    };
-  });
 
   return (
     <div className="flex-1 overflow-auto bg-[#f6f8fc]">
@@ -46,6 +27,15 @@ export const DataTable: React.FC<DataTableProps> = ({
         <thead>
           {table.getHeaderGroups().map((headerGroup: any) => (
             <tr key={headerGroup.id}>
+              {/* Row Selection Header */}
+              <th className="border border-gray-200 px-1 py-1 w-12 ">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4"
+                  checked={table.getIsAllRowsSelected()}
+                  onChange={table.getToggleAllRowsSelectedHandler()}
+                />
+              </th>
               {headerGroup.headers.map((header: any) => (
                 <th
                   key={header.id}
@@ -73,10 +63,10 @@ export const DataTable: React.FC<DataTableProps> = ({
               ))}
               {/* Add Column Template */}
               <th className="border border-gray-200 px-2 py-1 w-10">
-                <button
-                  className="flex items-center justify-center h-5 w-6"
-                  onClick={addColumn}
-                >
+              <button
+                className="flex items-center justify-center h-5 w-6"
+                onClick={() => addColumn()}
+              >
                   <Plus className="h-3 w-3" />
                 </button>
               </th>
@@ -84,23 +74,50 @@ export const DataTable: React.FC<DataTableProps> = ({
           ))}
         </thead>
         <tbody>
-          {table.getRowModel().rows.map((row: any) => (
-            <tr key={row.id} className="group">
+          {table.getRowModel().rows.map((row: any, index: number) => (
+            <tr 
+              key={row.id} 
+              className={`group ${row.getIsSelected() ? 'bg-blue-50' : ''}`}
+            >
+              {/* Row Selection Cell */}
+              <td className={`border border-gray-200 px-1 py-1 h-8 w-12 text-center text-xs cursor-pointer group ${row.getIsSelected() ? 'bg-blue-100' : ''}`}>
+                <div 
+                  className="flex items-center justify-center h-full"
+                  onClick={row.getToggleSelectedHandler()}
+                >
+                  {row.getIsSelected() ? (
+                    <input
+                      type="checkbox"
+                      className="w-3 h-3"
+                      checked={true}
+                      onChange={() => {}}
+                      tabIndex={-1}
+                    />
+                  ) : (
+                    <>
+                      <input
+                        type="checkbox"
+                        className="w-3 h-3 opacity-0 group-hover:opacity-100"
+                        checked={false}
+                        onChange={() => {}}
+                        tabIndex={-1}
+                      />
+                      <span className="text-gray-500 group-hover:opacity-0 absolute">{index + 1}</span>
+                    </>
+                  )}
+                </div>
+              </td>
               {row.getVisibleCells().map((cell: any) => (
                 <td
                   key={cell.id}
-                  className="border border-gray-200 px-2 py-1 h-7 text-xs"
+                  className="border border-gray-200 px-1 py-1 h-8 text-xs"
                 >
-                  {cell.column.columnDef.cell ? (
-                    flexRender(cell.column.columnDef.cell, cell.getContext())
-                  ) : (
-                    <EditableCell
-                      value={cell.getValue()}
-                      row={row}
-                      column={cell.column}
-                      table={table}
-                    />
-                  )}
+                  <EditableCell
+                    value={cell.getValue()}
+                    row={row}
+                    column={cell.column}
+                    table={table}
+                  />
                 </td>
               ))}
             </tr>
@@ -108,12 +125,12 @@ export const DataTable: React.FC<DataTableProps> = ({
           {/* Add Row Template - Single Row Spanning All Columns */}
           <tr className="group">
             <td 
-              colSpan={(table.getHeaderGroups()[0]?.headers.length || 0)} 
-              className="border border-gray-200 px-2 py-1 h-7"
+              colSpan={(table.getHeaderGroups()[0]?.headers.length || 0) + 2} 
+              className="border border-gray-200 px-1 py-1 h-8"
             >
               <button
-                className="flex items-center justify-center gap-1 w-full h-5 text-xs"
-                onClick={addRow}
+                className="flex items-center justify-center gap-1 w-full h-8 text-xs"
+                onClick={() => addRow()}
               >
                 <Plus className="h-3 w-3" />
                 <span>Add row</span>
