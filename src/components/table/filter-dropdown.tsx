@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { Filter, Plus, X } from "lucide-react"
+import { Filter, Plus, X, Save } from "lucide-react"
 import type { FilterCondition, ViewFilters, FilterOperator } from "@/types/view"
 import type { TableColumn } from "@/types/table"
 import { FILTER_OPERATORS } from "@/types/view"
@@ -180,6 +180,18 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
                         />
                       )}
 
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          // Save the current filter state - you can implement this logic
+                          console.log('Saving filter:', condition);
+                        }}
+                        className="h-8 w-8 text-black hover:text-green-500 rounded-none"
+                      >
+                        <Save className="h-4 w-4" />
+                      </Button>
+                      
                       <Button
                         variant="ghost"
                         size="icon"
