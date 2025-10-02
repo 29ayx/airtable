@@ -1,6 +1,7 @@
 "use client"
 
 import EditableTable from "@/components/editable-table"
+import { ThinSidebar } from "@/components/sidebar/thin-sidebar"
 import { useUser } from "@/hooks/use-session"
 import { api } from "@/trpc/react"
 import { useParams } from "next/navigation"
@@ -20,5 +21,12 @@ export default function BasePage() {
     return <div className="flex items-center justify-center min-h-screen">Base not found</div>;
   }
 
-  return <EditableTable baseId={baseId} baseName={base.name} />
+  return (
+    <div className="flex h-screen">
+      <ThinSidebar />
+      <div className="flex-1 flex flex-col">
+        <EditableTable baseId={baseId} baseName={base.name} />
+      </div>
+    </div>
+  )
 }

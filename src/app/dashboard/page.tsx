@@ -7,17 +7,36 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Command, Calendar, Clock } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Search, Command, Calendar, Clock, MoreVertical, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useUser } from "@/hooks/use-session";
 import { api } from "@/trpc/react";
 import Link from "next/link";
+import { useState } from "react";
 
 import data from "./data.json";
 
 export default function Page() {
   const { user, name, email, image, isLoading } = useUser();
-  const { data: bases, isLoading: basesLoading } = api.base.getAll.useQuery();
+  const { data: bases, isLoading: basesLoading, refetch } = api.base.getAll.useQuery();
+  const [deletingBaseId, setDeletingBaseId] = useState<string | null>(null);
+
+  const deleteBaseMutation = api.base.delete.useMutation({
+    onSuccess: () => {
+      refetch();
+      setDeletingBaseId(null);
+    },
+    onError: (error) => {
+      console.error("Failed to delete base:", error);
+      setDeletingBaseId(null);
+    },
+  });
+
+  const handleDeleteBase = (baseId: string) => {
+    setDeletingBaseId(baseId);
+    deleteBaseMutation.mutate({ id: baseId });
+  };
 
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
@@ -99,8 +118,8 @@ export default function Page() {
                     <div>Loading bases...</div>
                   ) : bases && bases.length > 0 ? (
                     bases.map((base) => (
-                      <Link key={base.id} href={`/base/${base.id}`}>
-                        <Card className="hover:shadow-md transition-shadow cursor-pointer max-h-[85px] max-w-[270px]">
+                      <Card key={base.id} className="hover:shadow-md transition-shadow max-h-[85px] max-w-[270px] relative group">
+                        <Link href={`/base/${base.id}`}>
                           <CardContent className="p-4 h-full">
                             <div className="flex items-center gap-4 h-full">
                               <Calendar className="h-8 w-8 text-blue-600 flex-shrink-0" />
@@ -113,8 +132,37 @@ export default function Page() {
                               </div>
                             </div>
                           </CardContent>
-                        </Card>
-                      </Link>
+                        </Link>
+                        
+                        {/* Dropdown Menu */}
+                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 hover:bg-gray-100"
+                                onClick={(e) => e.preventDefault()}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem 
+                                className="text-red-600 focus:text-red-600"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleDeleteBase(base.id);
+                                }}
+                                disabled={deletingBaseId === base.id}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                {deletingBaseId === base.id ? "Deleting..." : "Delete"}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </Card>
                     ))
                   ) : (
                     <div className="text-gray-500 text-sm">No bases created yet. Create your first base!</div>
