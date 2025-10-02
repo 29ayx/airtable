@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useState } from 'react'
-import { Input } from "@/components/ui/input"
 import type { Row } from '@tanstack/react-table'
 
 interface EditableCellProps {
@@ -12,16 +11,16 @@ interface EditableCellProps {
 }
 
 export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, table }) => {
-  const [editValue, setEditValue] = useState(value || '')
+  const [editValue, setEditValue] = useState(value ?? '')
   
   // Get editing state from table meta
   const editingCell = table.options.meta?.editingCell
   const setEditingCell = table.options.meta?.setEditingCell
-  const rowId = row.original?.id || row.id;
+  const rowId = row.original?.id ?? row.id;
   const isEditing = editingCell?.rowId === rowId && editingCell?.columnId === column.id
   
   // Get selection state from table meta
-  const selectedCells = table.options.meta?.selectedCells || new Set()
+  const selectedCells = table.options.meta?.selectedCells ?? new Set()
   const startSelection = table.options.meta?.startSelection
   const updateSelection = table.options.meta?.updateSelection
   const endSelection = table.options.meta?.endSelection
@@ -33,15 +32,15 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
 
   const handleSave = () => {
     if (editValue !== value) {
-      const rowId = row.original?.id || row.id;
+      const rowId = row.original?.id ?? row.id;
       table.options.meta?.updateData(rowId, column.id, editValue)
     }
     setEditingCell(null)
   }
 
   const startEditing = () => {
-    const rowId = row.original?.id || row.id;
-    setEditValue(value || '')
+    const rowId = row.original?.id ?? row.id;
+    setEditValue(value ?? '')
     setEditingCell({ rowId, columnId: column.id })
     clearSelection?.() // Clear selection when starting to edit
   }
@@ -75,7 +74,7 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
         
         // Force immediate save of current cell (bypass debouncing)
         if (editValue !== value) {
-          const currentRowId = row.original?.id || row.id;
+          const currentRowId = row.original?.id ?? row.id;
           console.log('💾 Force saving current cell before new row:', { rowId: currentRowId, columnId: column.id, value: editValue });
           table.options.meta?.updateData(currentRowId, column.id, editValue);
         }
@@ -95,7 +94,7 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
           if (newRowIndex < rows.length) {
             const newRow = rows[newRowIndex];
             if (newRow && setEditingCell) {
-              const newRowId = newRow.original?.id || newRow.id;
+              const newRowId = newRow.original?.id ?? newRow.id;
               console.log('🎯 Auto-selecting cell in new row:', { rowId: newRowId, columnId: column.id });
               setEditingCell({ rowId: newRowId, columnId: column.id });
             }
@@ -117,7 +116,7 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
         setTimeout(() => {
           const nextRow = rows[nextRowIndex]
           if (nextRow && setEditingCell) {
-            const nextRowId = nextRow.original?.id || nextRow.id;
+            const nextRowId = nextRow.original?.id ?? nextRow.id;
             setEditingCell({ rowId: nextRowId, columnId: column.id })
           }
         }, 10)
@@ -140,7 +139,7 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
         }, 10)
       }
     } else if (e.key === 'Escape') {
-      setEditValue(value || '')
+      setEditValue(value ?? '')
       setEditingCell(null)
     }
   }
@@ -170,7 +169,7 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
       data-row-index={row.index}
       data-column-id={column.id}
     >
-      {value || ''}
+      {value ?? ''}
     </div>
   )
 }

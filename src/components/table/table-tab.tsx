@@ -1,11 +1,13 @@
 "use client"
 
 import React from 'react'
+import type { Table } from '@tanstack/react-table'
 import { TableToolbar } from "./table-toolbar"
 import { DataTable } from "./data-table"
+import type { TableRow } from '@/types/table'
 
 interface TableTabProps {
-  table: any
+  table: Table<TableRow>
   addRow: () => void
   addColumn: () => void
 }

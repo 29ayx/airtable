@@ -62,7 +62,7 @@ export const tableRouter = createTRPCRouter({
         if (!cellsMap.has(cell.rowId)) {
           cellsMap.set(cell.rowId, {});
         }
-        cellsMap.get(cell.rowId)![cell.columnId] = cell.value || "";
+        cellsMap.get(cell.rowId)![cell.columnId] = cell.value ?? "";
       });
 
       // Convert to array format with proper ordering
@@ -70,7 +70,7 @@ export const tableRouter = createTRPCRouter({
         id: row.id,
         order: row.order,
         createdAt: row.createdAt,
-        ...cellsMap.get(row.id) || {},
+        ...cellsMap.get(row.id) ?? {},
       }));
 
       return {
@@ -118,7 +118,7 @@ export const tableRouter = createTRPCRouter({
           name: input.name,
           type: input.type,
           tableId: table.id,
-          order: (maxOrder?.max || 0) + 1,
+          order: (maxOrder?.max ?? 0) + 1,
         })
         .returning();
 
@@ -220,7 +220,7 @@ export const tableRouter = createTRPCRouter({
         .insert(rows)
         .values({
           tableId: table.id,
-          order: (maxOrder?.max || 0) + 1,
+          order: (maxOrder?.max ?? 0) + 1,
         })
         .returning();
 

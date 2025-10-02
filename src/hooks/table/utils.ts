@@ -1,10 +1,10 @@
 // Debounce utility
-export function debounce<T extends (...args: any[]) => any>(func: T, wait: number): T {
+export function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout
-  return ((...args: any[]) => {
+  return (...args: Parameters<T>) => {
     clearTimeout(timeout)
     timeout = setTimeout(() => func(...args), wait)
-  }) as T
+  }
 }
 
 // Cell key utilities

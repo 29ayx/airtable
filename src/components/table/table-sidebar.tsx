@@ -1,8 +1,7 @@
 "use client"
 
 import React from 'react'
-import { Button } from "@/components/ui/button"
-import { ChevronDown, Plus, Search, Grid3x3, HelpCircle, Bell } from "lucide-react"
+import { Plus, Search, Grid3x3 } from "lucide-react"
 
 export const TableSidebar: React.FC = () => {
   return (

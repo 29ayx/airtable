@@ -4,6 +4,7 @@ import React, { useState, useMemo, useRef } from 'react'
 import { useReactTable, getCoreRowModel, getSortedRowModel, getFilteredRowModel } from '@tanstack/react-table'
 import type { ColumnDef, SortingState, ColumnFiltersState } from '@tanstack/react-table'
 import { api } from "@/trpc/react"
+import type { TableData, TableColumn, TableRow, CellUpdate } from '@/types/table'
 
 // Import extracted modules
 import { useCellSelection } from './table/use-cell-selection'
@@ -16,15 +17,15 @@ export function useTableData(baseId: string) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
   const [optimisticData, setOptimisticData] = useState<{
-    columns: any[];
-    rows: any[];
+    columns: TableColumn[];
+    rows: TableRow[];
   } | null>(null);
   
   // Editing state
   const [editingCell, setEditingCell] = useState<{rowId: string, columnId: string} | null>(null)
   
   // Refs for tracking temp data and pending operations
-  const pendingUpdates = useRef<Map<string, {rowId: string, columnId: string, value: any}>>(new Map())
+  const pendingUpdates = useRef<Map<string, CellUpdate>>(new Map())
   const tempRowIds = useRef<Set<string>>(new Set())
   const tempRowData = useRef<Map<string, Record<string, string>>>(new Map())
 
@@ -66,11 +67,11 @@ export function useTableData(baseId: string) {
   }, [tableData, optimisticData]);
 
   // Create table columns (without JSX - just return column config)
-  const tableColumns = useMemo<ColumnDef<any>[]>(() => {
-    const columns = optimisticData?.columns || tableData?.columns || [];
+  const tableColumns = useMemo<ColumnDef<TableRow>[]>(() => {
+    const columns = optimisticData?.columns ?? tableData?.columns ?? [];
     if (!columns.length) return [];
     
-    const cols: ColumnDef<any>[] = columns.map((col: any) => ({
+    const cols: ColumnDef<TableRow>[] = columns.map((col) => ({
       id: col.id,
       header: col.name,
       accessorKey: col.id,
@@ -84,7 +85,7 @@ export function useTableData(baseId: string) {
 
   // Create table instance
   const table = useReactTable({
-    data: optimisticData?.rows || tableData?.rows || [],
+    data: optimisticData?.rows ?? tableData?.rows ?? [],
     columns: tableColumns,
     getRowId: (row) => row.id,
     getCoreRowModel: getCoreRowModel(),
@@ -113,7 +114,7 @@ export function useTableData(baseId: string) {
       selectedCells: cellSelection.selectedCells,
       startSelection: cellSelection.startSelection,
       updateSelection: (endRowId: string, endColumnId: string) => 
-        cellSelection.updateSelection(endRowId, endColumnId, optimisticData?.rows || [], optimisticData?.columns || []),
+        cellSelection.updateSelection(endRowId, endColumnId, optimisticData?.rows ?? [], optimisticData?.columns ?? []),
       endSelection: cellSelection.endSelection,
       clearSelection: cellSelection.clearSelection,
       deleteSelectedCells: () => cellSelection.deleteSelectedCells(operations.updateData),
@@ -126,9 +127,9 @@ export function useTableData(baseId: string) {
     tableData,
     optimisticData,
     isLoading,
-    columns: optimisticData?.columns || tableData?.columns || [],
-    rows: optimisticData?.rows || tableData?.rows || [],
-    tableInfo: tableData?.table || null,
+    columns: optimisticData?.columns ?? tableData?.columns ?? [],
+    rows: optimisticData?.rows ?? tableData?.rows ?? [],
+    tableInfo: tableData?.table ?? null,
     // Editing state
     editingCell,
     setEditingCell,
@@ -136,7 +137,7 @@ export function useTableData(baseId: string) {
     selectedCells: cellSelection.selectedCells,
     startSelection: cellSelection.startSelection,
     updateSelection: (endRowId: string, endColumnId: string) => 
-      cellSelection.updateSelection(endRowId, endColumnId, optimisticData?.rows || [], optimisticData?.columns || []),
+      cellSelection.updateSelection(endRowId, endColumnId, optimisticData?.rows ?? [], optimisticData?.columns ?? []),
     endSelection: cellSelection.endSelection,
     clearSelection: cellSelection.clearSelection,
     deleteSelectedCells: () => cellSelection.deleteSelectedCells(operations.updateData),

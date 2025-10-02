@@ -1,13 +1,14 @@
-import { useRef } from 'react'
+import type React from 'react'
 import { api } from "@/trpc/react"
+import type { TableData, CellUpdate, TableColumn, TableRow } from '@/types/table'
 
 export interface TableMutationsConfig {
   baseId: string
   tempRowIds: React.MutableRefObject<Set<string>>
   tempRowData: React.MutableRefObject<Map<string, Record<string, string>>>
-  pendingUpdates: React.MutableRefObject<Map<string, {rowId: string, columnId: string, value: any}>>
-  setOptimisticData: React.Dispatch<React.SetStateAction<{columns: any[], rows: any[]} | null>>
-  tableData: any
+  pendingUpdates: React.MutableRefObject<Map<string, CellUpdate>>
+  setOptimisticData: React.Dispatch<React.SetStateAction<{columns: TableColumn[], rows: TableRow[]} | null>>
+  tableData: TableData | undefined
 }
 
 export function useTableMutations(config: TableMutationsConfig) {
@@ -28,7 +29,7 @@ export function useTableMutations(config: TableMutationsConfig) {
         return {
           ...prev,
           columns: prev.columns.map(col => 
-            col.id === `temp-col-${variables.name}` ? newColumn : col
+            col.id === `temp-col-${variables.name}` ? (newColumn as TableColumn) : col
           )
         };
       });
@@ -47,7 +48,7 @@ export function useTableMutations(config: TableMutationsConfig) {
   const deleteColumnMutation = api.table.deleteColumn.useMutation({
     onError: (error, variables) => {
       if (tableData) {
-        const originalColumn = tableData.columns.find((col: any) => col.id === variables.columnId);
+        const originalColumn = tableData.columns.find((col) => col.id === variables.columnId);
         if (originalColumn) {
           setOptimisticData(prev => {
             if (!prev) return prev;
@@ -64,15 +65,15 @@ export function useTableMutations(config: TableMutationsConfig) {
   const updateColumnNameMutation = api.table.updateColumnName.useMutation({
     onError: (error, variables) => {
       if (tableData) {
-        const originalColumn = tableData.columns.find((col: any) => col.id === variables.columnId);
+        const originalColumn = tableData.columns.find((col) => col.id === variables.columnId);
         if (originalColumn) {
           setOptimisticData(prev => {
             if (!prev) return prev;
             return {
               ...prev,
-              columns: prev.columns.map(col => 
-                col.id === variables.columnId ? originalColumn : col
-              )
+          columns: prev.columns.map(col => 
+            col.id === variables.columnId ? (originalColumn as TableColumn) : col
+          )
             };
           });
         }
@@ -133,7 +134,7 @@ export function useTableMutations(config: TableMutationsConfig) {
               baseId,
               rowId: newRow.id,
               columnId: columnId,
-              value: value || "",
+              value: value ?? "",
             });
           });
         }, 50);
@@ -160,7 +161,7 @@ export function useTableMutations(config: TableMutationsConfig) {
   const deleteRowMutation = api.table.deleteRow.useMutation({
     onError: (error, variables) => {
       if (tableData) {
-        const originalRow = tableData.rows.find((row: any) => row.id === variables.rowId);
+        const originalRow = tableData.rows.find((row) => row.id === variables.rowId);
         if (originalRow) {
           setOptimisticData(prev => {
             if (!prev) return prev;
@@ -184,7 +185,7 @@ export function useTableMutations(config: TableMutationsConfig) {
       pendingUpdates.current.delete(key);
       
       if (tableData) {
-        const originalRow = tableData.rows.find((row: any) => row.id === variables.rowId);
+        const originalRow = tableData.rows.find((row) => row.id === variables.rowId);
         if (originalRow) {
           setOptimisticData(prev => {
             if (!prev) return prev;

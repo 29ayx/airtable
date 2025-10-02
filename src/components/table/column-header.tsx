@@ -6,19 +6,8 @@ import { Input } from "@/components/ui/input"
 import { ArrowUp, X } from "lucide-react"
 
 interface ColumnHeaderProps {
-  column: {
-    id: string
-    columnDef: { header: string }
-    getIsSorted: () => string | false
-  }
-  table: {
-    options: {
-      meta?: {
-        updateColumnName: (columnId: string, name: string) => void
-        deleteColumn: (columnId: string) => void
-      }
-    }
-  }
+  column: any
+  table: any
 }
 
 export const ColumnHeader: React.FC<ColumnHeaderProps> = ({ column, table }) => {

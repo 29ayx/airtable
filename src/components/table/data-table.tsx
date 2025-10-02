@@ -119,7 +119,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                       type="checkbox"
                       className="w-3 h-3"
                       checked={true}
-                      onChange={() => {}}
+                      onChange={() => undefined}
                       tabIndex={-1}
                     />
                   ) : (
@@ -128,7 +128,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                         type="checkbox"
                         className="w-3 h-3 opacity-0 group-hover:opacity-100"
                         checked={false}
-                        onChange={() => {}}
+                        onChange={() => undefined}
                         tabIndex={-1}
                       />
                       <span className="text-gray-500 group-hover:opacity-0 absolute">{index + 1}</span>
@@ -154,7 +154,7 @@ export const DataTable: React.FC<DataTableProps> = ({
           {/* Add Row Template - Single Row Spanning All Columns */}
           <tr className="group">
             <td 
-              colSpan={(table.getHeaderGroups()[0]?.headers.length || 0) + 2} 
+              colSpan={(table.getHeaderGroups()[0]?.headers.length ?? 0) + 2} 
               className="border border-gray-200 px-1 py-1 h-8"
             >
               <button

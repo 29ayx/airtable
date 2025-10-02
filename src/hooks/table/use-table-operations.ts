@@ -1,21 +1,15 @@
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useMemo } from 'react'
 import { debounce, createTempRowId, createTempColumnId } from './utils'
+import type { TableColumn, TableRow, CellUpdate, TableMutations } from '@/types/table'
 
 export interface TableOperationsConfig {
   baseId: string
   tempRowIds: React.MutableRefObject<Set<string>>
   tempRowData: React.MutableRefObject<Map<string, Record<string, string>>>
-  pendingUpdates: React.MutableRefObject<Map<string, {rowId: string, columnId: string, value: any}>>
-  setOptimisticData: React.Dispatch<React.SetStateAction<{columns: any[], rows: any[]} | null>>
-  optimisticData: {columns: any[], rows: any[]} | null
-  mutations: {
-    addRowMutation: any
-    deleteRowMutation: any
-    addColumnMutation: any
-    deleteColumnMutation: any
-    updateColumnNameMutation: any
-    updateCellMutation: any
-  }
+  pendingUpdates: React.MutableRefObject<Map<string, CellUpdate>>
+  setOptimisticData: React.Dispatch<React.SetStateAction<{columns: TableColumn[], rows: TableRow[]} | null>>
+  optimisticData: {columns: TableColumn[], rows: TableRow[]} | null
+  mutations: TableMutations
 }
 
 export function useTableOperations(config: TableOperationsConfig) {
@@ -31,7 +25,7 @@ export function useTableOperations(config: TableOperationsConfig) {
 
   // Debounced update function
   const debouncedUpdateCell = useMemo(() => 
-    debounce((rowId: string, columnId: string, value: any) => {
+    debounce((rowId: string, columnId: string, value: string) => {
       const key = `${rowId}-${columnId}`;
       console.log('⏰ debouncedUpdateCell called:', { rowId, columnId, value, key });
       
@@ -40,20 +34,20 @@ export function useTableOperations(config: TableOperationsConfig) {
         return;
       }
       
-      pendingUpdates.current.set(key, { rowId, columnId, value });
+      pendingUpdates.current.set(key, { rowId, columnId, value: value ?? "" });
       console.log('📡 Sending updateCell mutation:', { baseId, rowId, columnId, value });
       
       mutations.updateCellMutation.mutate({
         baseId,
         rowId,
         columnId,
-        value: value || "",
+        value: value ?? "",
       });
     }, 300), [baseId, mutations.updateCellMutation]
   );
 
   // Core table operations
-  const updateData = useCallback((rowId: string, columnId: string, value: any) => {
+  const updateData = useCallback((rowId: string, columnId: string, value: string) => {
     console.log('🔄 updateData called:', { rowId, columnId, value, isTemp: tempRowIds.current.has(rowId) });
     
     // Handle temporary rows
@@ -64,7 +58,7 @@ export function useTableOperations(config: TableOperationsConfig) {
         tempRowData.current.set(rowId, {});
       }
       const currentTempData = tempRowData.current.get(rowId)!;
-      currentTempData[columnId] = value || "";
+      currentTempData[columnId] = value ?? "";
       tempRowData.current.set(rowId, currentTempData);
       
       console.log('💾 Temp row data updated:', { rowId, data: currentTempData });
@@ -74,7 +68,7 @@ export function useTableOperations(config: TableOperationsConfig) {
         return {
           ...prev,
           rows: prev.rows.map(row => 
-            row.id === rowId ? { ...row, [columnId]: value || "" } : row
+            row.id === rowId ? { ...row, [columnId]: value ?? "" } : row
           )
         };
       });
@@ -87,7 +81,7 @@ export function useTableOperations(config: TableOperationsConfig) {
       return {
         ...prev,
         rows: prev.rows.map(row => 
-          row.id === rowId ? { ...row, [columnId]: value || "" } : row
+          row.id === rowId ? { ...row, [columnId]: value ?? "" } : row
         )
       };
     });
@@ -104,8 +98,8 @@ export function useTableOperations(config: TableOperationsConfig) {
     
     setOptimisticData(prev => {
       if (!prev) return prev;
-      const newRow: any = { id: tempRowId };
-      prev.columns.forEach((col: any) => {
+      const newRow: TableRow = { id: tempRowId };
+      prev.columns.forEach((col) => {
         newRow[col.id] = "";
       });
       return {
@@ -163,8 +157,8 @@ export function useTableOperations(config: TableOperationsConfig) {
       return {
         columns: prev.columns.filter(col => col.id !== columnId),
         rows: prev.rows.map(row => {
-          const { [columnId]: deleted, ...rest } = row;
-          return rest;
+          const { [columnId]: _deleted, ...rest } = row;
+          return { id: row.id, ...rest } as TableRow;
         })
       };
     });

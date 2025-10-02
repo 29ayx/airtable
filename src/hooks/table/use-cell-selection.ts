@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { createCellKey, parseCellKey } from './utils'
+import type { TableRow, TableColumn } from '@/types/table'
 
 export interface CellSelectionState {
   selectedCells: Set<string>
@@ -9,7 +10,7 @@ export interface CellSelectionState {
 
 export interface CellSelectionActions {
   startSelection: (rowId: string, columnId: string) => void
-  updateSelection: (endRowId: string, endColumnId: string, rows: any[], columns: any[]) => void
+  updateSelection: (endRowId: string, endColumnId: string, rows: TableRow[], columns: TableColumn[]) => void
   endSelection: () => void
   clearSelection: () => void
   deleteSelectedCells: (updateData: (rowId: string, columnId: string, value: string) => void) => void
@@ -26,7 +27,7 @@ export function useCellSelection(): CellSelectionState & CellSelectionActions {
     setIsSelecting(true);
   }, []);
 
-  const updateSelection = useCallback((endRowId: string, endColumnId: string, rows: any[], columns: any[]) => {
+  const updateSelection = useCallback((endRowId: string, endColumnId: string, rows: TableRow[], columns: TableColumn[]) => {
     if (!selectionStart) return;
 
     const startRowIndex = rows.findIndex(row => row.id === selectionStart.rowId);
@@ -44,9 +45,13 @@ export function useCellSelection(): CellSelectionState & CellSelectionActions {
     const newSelection = new Set<string>();
     for (let rowIdx = minRow; rowIdx <= maxRow; rowIdx++) {
       for (let colIdx = minCol; colIdx <= maxCol; colIdx++) {
-        const rowId = rows[rowIdx].id;
-        const columnId = columns[colIdx].id;
-        newSelection.add(createCellKey(rowId, columnId));
+        const row = rows[rowIdx];
+        const column = columns[colIdx];
+        if (row && column) {
+          const rowId = row.id;
+          const columnId = column.id;
+          newSelection.add(createCellKey(rowId, columnId));
+        }
       }
     }
 
