@@ -79,7 +79,7 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
         <ColumnVisibilityDropdown
           columns={columns}
           hiddenColumns={hiddenColumns}
-          onHiddenColumnsChange={onHiddenColumnsChange || (() => {})}
+          onHiddenColumnsChange={onHiddenColumnsChange || (() => { /* no-op */ })}
         />
         <FilterDropdown
           filters={filters}
@@ -160,7 +160,7 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
         onClose={() => setIsSortDialogOpen(false)}
         sorts={sorts}
         columns={columns}
-        onSortsChange={onSortsChange || (() => {})}
+        onSortsChange={onSortsChange || (() => { /* no-op */ })}
       />
     </div>
   )

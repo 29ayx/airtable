@@ -139,7 +139,10 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
                           updateCondition(condition.id, { columnId: value });
                           const newOperators = getOperatorsForColumn(value);
                           if (newOperators.length > 0 && !newOperators.find(([op]) => op === condition.operator)) {
-                            updateCondition(condition.id, { columnId: value, operator: newOperators[0][0] as FilterOperator });
+                            const firstOperator = newOperators[0];
+                            if (firstOperator) {
+                              updateCondition(condition.id, { columnId: value, operator: firstOperator[0] as FilterOperator });
+                            }
                           }
                         }}
                       >

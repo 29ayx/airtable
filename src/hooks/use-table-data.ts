@@ -20,9 +20,9 @@ function evaluateFilters(filters: ViewFilters, row: TableRow, columns: TableColu
     
     switch (condition.operator) {
       case 'contains':
-        return value.includes(filterValue);
+        return String(value).includes(String(filterValue));
       case 'does_not_contain':
-        return !value.includes(filterValue);
+        return !String(value).includes(String(filterValue));
       case 'is':
         return value === filterValue;
       case 'is_not':
@@ -32,21 +32,21 @@ function evaluateFilters(filters: ViewFilters, row: TableRow, columns: TableColu
       case 'is_not_empty':
         return value !== '';
       case 'starts_with':
-        return value.startsWith(filterValue);
+        return String(value).startsWith(String(filterValue));
       case 'ends_with':
-        return value.endsWith(filterValue);
+        return String(value).endsWith(String(filterValue));
       case 'equals':
-        return parseFloat(value) === parseFloat(filterValue);
+        return parseFloat(String(value)) === parseFloat(String(filterValue));
       case 'not_equals':
-        return parseFloat(value) !== parseFloat(filterValue);
+        return parseFloat(String(value)) !== parseFloat(String(filterValue));
       case 'greater_than':
-        return parseFloat(value) > parseFloat(filterValue);
+        return parseFloat(String(value)) > parseFloat(String(filterValue));
       case 'less_than':
-        return parseFloat(value) < parseFloat(filterValue);
+        return parseFloat(String(value)) < parseFloat(String(filterValue));
       case 'greater_than_or_equal':
-        return parseFloat(value) >= parseFloat(filterValue);
+        return parseFloat(String(value)) >= parseFloat(String(filterValue));
       case 'less_than_or_equal':
-        return parseFloat(value) <= parseFloat(filterValue);
+        return parseFloat(String(value)) <= parseFloat(String(filterValue));
       default:
         return true;
     }

@@ -117,7 +117,7 @@ export const ColumnVisibilityDropdown: React.FC<ColumnVisibilityDropdownProps> =
 
           {hiddenColumns.length > 0 && (
             <p className="text-xs text-gray-500 pt-2 border-t">
-              Hidden fields preserve their data but won't appear in this view.
+              Hidden fields preserve their data but won&apos;t appear in this view.
             </p>
           )}
         </div>

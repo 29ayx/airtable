@@ -510,7 +510,7 @@ export const tableRouter = createTRPCRouter({
         .from(tables)
         .where(eq(tables.baseId, input.baseId));
 
-      if (tableCount[0]?.count <= 1) {
+      if ((tableCount[0]?.count ?? 0) <= 1) {
         throw new Error("Cannot delete the last table in a base");
       }
 
@@ -591,7 +591,7 @@ export const tableRouter = createTRPCRouter({
 
       if (!base) throw new Error("Base not found");
 
-      const updateData: any = {};
+      const updateData: Partial<typeof views.$inferInsert> = {};
       if (input.name !== undefined) updateData.name = input.name;
       if (input.filters !== undefined) updateData.filters = input.filters;
       if (input.sorts !== undefined) updateData.sorts = input.sorts;

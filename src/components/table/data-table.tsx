@@ -161,7 +161,7 @@ export const DataTable: React.FC<DataTableProps> = ({
       }
       
       // Handle printable characters (letters, numbers, symbols, space)
-      if (e.key.match(/^[a-zA-Z0-9\s\W]$/)) {
+      if (/^[a-zA-Z0-9\s\W]$/.exec(e.key)) {
         e.preventDefault();
         // Start editing with the typed character
         setEditingCell?.(focusedCell);

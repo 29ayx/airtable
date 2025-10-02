@@ -41,7 +41,7 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
   const clearSelection = table.options.meta?.clearSelection
   const isSelecting = table.options.meta?.isSelecting
   
-  const cellKey = createCellKey(rowId, column.id)
+  const cellKey = createCellKey(String(rowId), String(column.id))
   const isSelected = selectedCells.has(cellKey)
 
   const handleSave = () => {
