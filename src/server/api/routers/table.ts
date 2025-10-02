@@ -4,9 +4,34 @@ import { bases, tables, columns, cells, rows } from "@/server/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 export const tableRouter = createTRPCRouter({
-  // Get table with columns and data for a base
-  getTableData: protectedProcedure
+  // Get all tables for a base
+  getAllTables: protectedProcedure
     .input(z.object({ baseId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Verify base ownership
+      const [base] = await ctx.db
+        .select()
+        .from(bases)
+        .where(and(eq(bases.id, input.baseId), eq(bases.userId, ctx.session.user.id)));
+
+      if (!base) throw new Error("Base not found");
+
+      // Get all tables for this base
+      const baseTables = await ctx.db
+        .select()
+        .from(tables)
+        .where(eq(tables.baseId, input.baseId))
+        .orderBy(tables.createdAt);
+
+      return baseTables;
+    }),
+
+  // Get table with columns and data for a specific table
+  getTableData: protectedProcedure
+    .input(z.object({ 
+      baseId: z.string(),
+      tableId: z.string().optional()
+    }))
     .query(async ({ ctx, input }) => {
       // Get base and verify ownership
       const [base] = await ctx.db
@@ -16,13 +41,21 @@ export const tableRouter = createTRPCRouter({
 
       if (!base) throw new Error("Base not found");
 
-      // Get or create default table
-      let [table] = await ctx.db
-        .select()
-        .from(tables)
-        .where(eq(tables.baseId, input.baseId));
+      // Get specific table or first table for the base
+      let [table] = input.tableId 
+        ? await ctx.db
+            .select()
+            .from(tables)
+            .where(and(eq(tables.id, input.tableId), eq(tables.baseId, input.baseId)))
+        : await ctx.db
+            .select()
+            .from(tables)
+            .where(eq(tables.baseId, input.baseId))
+            .orderBy(tables.createdAt)
+            .limit(1);
 
       if (!table) {
+        // Create default table if none exists
         [table] = await ctx.db
           .insert(tables)
           .values({
@@ -84,6 +117,7 @@ export const tableRouter = createTRPCRouter({
   addColumn: protectedProcedure
     .input(z.object({
       baseId: z.string(),
+      tableId: z.string(),
       name: z.string().min(1),
       type: z.string().default("text"),
     }))
@@ -100,7 +134,7 @@ export const tableRouter = createTRPCRouter({
       const [table] = await ctx.db
         .select()
         .from(tables)
-        .where(eq(tables.baseId, input.baseId));
+        .where(and(eq(tables.id, input.tableId), eq(tables.baseId, input.baseId)));
 
       if (!table) throw new Error("Table not found");
 
@@ -182,6 +216,7 @@ export const tableRouter = createTRPCRouter({
   addRow: protectedProcedure
     .input(z.object({
       baseId: z.string(),
+      tableId: z.string(),
       tempRowId: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -197,7 +232,7 @@ export const tableRouter = createTRPCRouter({
       const [table] = await ctx.db
         .select()
         .from(tables)
-        .where(eq(tables.baseId, input.baseId));
+        .where(and(eq(tables.id, input.tableId), eq(tables.baseId, input.baseId)));
 
       if (!table) throw new Error("Table not found");
 
@@ -288,6 +323,7 @@ export const tableRouter = createTRPCRouter({
   updateCell: protectedProcedure
     .input(z.object({
       baseId: z.string(),
+      tableId: z.string(),
       rowId: z.string(),
       columnId: z.string(),
       value: z.string(),
@@ -305,7 +341,7 @@ export const tableRouter = createTRPCRouter({
       const [table] = await ctx.db
         .select()
         .from(tables)
-        .where(eq(tables.baseId, input.baseId));
+        .where(and(eq(tables.id, input.tableId), eq(tables.baseId, input.baseId)));
 
       if (!table) throw new Error("Table not found");
 
@@ -336,5 +372,94 @@ export const tableRouter = createTRPCRouter({
       }
 
       return { success: true };
+    }),
+
+  // Create new table
+  createTable: protectedProcedure
+    .input(z.object({
+      baseId: z.string(),
+      name: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify base ownership
+      const [base] = await ctx.db
+        .select()
+        .from(bases)
+        .where(and(eq(bases.id, input.baseId), eq(bases.userId, ctx.session.user.id)));
+
+      if (!base) throw new Error("Base not found");
+
+      // Create new table
+      const [newTable] = await ctx.db
+        .insert(tables)
+        .values({
+          name: input.name,
+          baseId: input.baseId,
+        })
+        .returning();
+
+      if (!newTable) {
+        throw new Error("Failed to create table");
+      }
+
+      // Create template columns: Name, Age, Email
+      const templateColumns = [
+        { name: "Name", type: "text", order: 0 },
+        { name: "Age", type: "number", order: 1 },
+        { name: "Email", type: "text", order: 2 },
+      ];
+
+      const createdColumns = await ctx.db.insert(columns).values(
+        templateColumns.map(col => ({
+          name: col.name,
+          type: col.type,
+          tableId: newTable.id,
+          order: col.order,
+        }))
+      ).returning();
+
+      // Create 3 demo rows
+      const demoData = [
+        { name: "John Doe", age: "30", email: "john@example.com" },
+        { name: "Jane Smith", age: "25", email: "jane@example.com" },
+        { name: "Bob Johnson", age: "35", email: "bob@example.com" },
+      ];
+
+      for (let i = 0; i < demoData.length; i++) {
+        const demoRow = demoData[i];
+        
+        // Create row entry
+        const [newRow] = await ctx.db
+          .insert(rows)
+          .values({
+            tableId: newTable.id,
+            order: i,
+          })
+          .returning();
+
+        if (newRow) {
+          // Create cells for each column with demo data
+          const cellsToInsert = [];
+          for (const column of createdColumns) {
+            let value = "";
+            if (column.name === "Name") value = demoRow!.name;
+            else if (column.name === "Age") value = demoRow!.age;
+            else if (column.name === "Email") value = demoRow!.email;
+
+            cellsToInsert.push({
+              tableId: newTable.id,
+              columnId: column.id,
+              rowId: newRow.id,
+              value: value,
+            });
+          }
+
+          if (cellsToInsert.length > 0) {
+            await ctx.db.insert(cells).values(cellsToInsert);
+          }
+        }
+      }
+
+      return newTable;
     }),
 });

@@ -4,6 +4,7 @@ import type { TableData, CellUpdate, TableColumn, TableRow } from '@/types/table
 
 export interface TableMutationsConfig {
   baseId: string
+  tableId: string
   tempRowIds: React.MutableRefObject<Set<string>>
   tempRowData: React.MutableRefObject<Map<string, Record<string, string>>>
   pendingUpdates: React.MutableRefObject<Map<string, CellUpdate>>
@@ -14,6 +15,7 @@ export interface TableMutationsConfig {
 export function useTableMutations(config: TableMutationsConfig) {
   const {
     baseId,
+    tableId,
     tempRowIds,
     tempRowData,
     pendingUpdates,
@@ -125,6 +127,7 @@ export function useTableMutations(config: TableMutationsConfig) {
             const value = trackedTempData[columnId];
             updateCellMutation.mutate({
               baseId,
+              tableId,
               rowId: newRow.id,
               columnId: columnId,
               value: value ?? "",

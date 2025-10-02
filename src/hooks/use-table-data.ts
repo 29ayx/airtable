@@ -11,7 +11,7 @@ import { useCellSelection } from './table/use-cell-selection'
 import { useTableMutations } from './table/use-table-mutations'
 import { useTableOperations } from './table/use-table-operations'
 
-export function useTableData(baseId: string) {
+export function useTableData(baseId: string, tableId?: string) {
   // Core table state
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -41,14 +41,24 @@ export function useTableData(baseId: string) {
   const tempRowData = useRef<Map<string, Record<string, string>>>(new Map())
 
   // Fetch table data from database
-  const { data: tableData, isLoading } = api.table.getTableData.useQuery({ baseId });
+  const { data: tableData, isLoading } = api.table.getTableData.useQuery({ 
+    baseId, 
+    tableId 
+  }, {
+    enabled: !!tableId, // Only fetch when we have a tableId
+    refetchOnMount: true, // Always refetch when component mounts
+  });
 
   // Use extracted hooks
   const cellSelection = useCellSelection();
   
+  // Get tableId from tableData
+  const currentTableId = tableId || tableData?.table?.id;
+
   // Initialize mutations
   const mutations = useTableMutations({
     baseId,
+    tableId: currentTableId || '',
     tempRowIds,
     tempRowData,
     pendingUpdates,
@@ -59,6 +69,7 @@ export function useTableData(baseId: string) {
   // Initialize table operations
   const operations = useTableOperations({
     baseId,
+    tableId: currentTableId || '',
     tempRowIds,
     tempRowData,
     pendingUpdates,
@@ -67,15 +78,20 @@ export function useTableData(baseId: string) {
     mutations
   });
 
-  // Update optimistic state when real data changes (only on initial load)
+  // Reset optimistic data when tableId changes
   React.useEffect(() => {
-    if (tableData && !optimisticData) {
+    setOptimisticData(null);
+  }, [tableId]);
+
+  // Update optimistic state when real data changes
+  React.useEffect(() => {
+    if (tableData && (!optimisticData || tableData.table?.id !== currentTableId)) {
       setOptimisticData({
         columns: tableData.columns,
         rows: tableData.rows,
       });
     }
-  }, [tableData, optimisticData]);
+  }, [tableData, optimisticData, currentTableId]);
 
   // Create table columns (without JSX - just return column config)
   const tableColumns = useMemo<ColumnDef<TableRow>[]>(() => {

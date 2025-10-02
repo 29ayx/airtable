@@ -4,6 +4,7 @@ import type { TableColumn, TableRow, CellUpdate, TableMutations } from '@/types/
 
 export interface TableOperationsConfig {
   baseId: string
+  tableId: string
   tempRowIds: React.MutableRefObject<Set<string>>
   tempRowData: React.MutableRefObject<Map<string, Record<string, string>>>
   pendingUpdates: React.MutableRefObject<Map<string, CellUpdate>>
@@ -15,6 +16,7 @@ export interface TableOperationsConfig {
 export function useTableOperations(config: TableOperationsConfig) {
   const {
     baseId,
+    tableId,
     tempRowIds,
     tempRowData,
     pendingUpdates,
@@ -42,6 +44,7 @@ export function useTableOperations(config: TableOperationsConfig) {
     
     mutations.updateCellMutation.mutate({
       baseId,
+      tableId,
       rowId,
       columnId,
       value: value ?? "",
@@ -66,6 +69,7 @@ export function useTableOperations(config: TableOperationsConfig) {
       
       mutations.updateCellMutation.mutate({
         baseId,
+        tableId,
         rowId,
         columnId,
         value: value ?? "",
@@ -139,7 +143,7 @@ export function useTableOperations(config: TableOperationsConfig) {
       };
     });
     
-    mutations.addRowMutation.mutate({ baseId, tempRowId });
+    mutations.addRowMutation.mutate({ baseId, tableId, tempRowId });
   }, [baseId, mutations.addRowMutation, tempRowIds, tempRowData, setOptimisticData]);
 
   const deleteRow = useCallback((rowId: string) => {
@@ -151,7 +155,7 @@ export function useTableOperations(config: TableOperationsConfig) {
       };
     });
     
-    mutations.deleteRowMutation.mutate({ baseId, rowId });
+    mutations.deleteRowMutation.mutate({ baseId, tableId, rowId });
   }, [baseId, mutations.deleteRowMutation, setOptimisticData]);
 
   const addColumn = useCallback(() => {
@@ -174,6 +178,7 @@ export function useTableOperations(config: TableOperationsConfig) {
     
     mutations.addColumnMutation.mutate({
       baseId,
+      tableId,
       name: columnName,
       type: "text",
     });
@@ -193,7 +198,7 @@ export function useTableOperations(config: TableOperationsConfig) {
       };
     });
     
-    mutations.deleteColumnMutation.mutate({ baseId, columnId });
+    mutations.deleteColumnMutation.mutate({ baseId, tableId, columnId });
   }, [baseId, optimisticData?.columns, mutations.deleteColumnMutation, setOptimisticData]);
 
   const updateColumnName = useCallback((columnId: string, newName: string) => {
@@ -209,6 +214,7 @@ export function useTableOperations(config: TableOperationsConfig) {
     
     mutations.updateColumnNameMutation.mutate({
       baseId,
+      tableId,
       columnId,
       name: newName,
     });

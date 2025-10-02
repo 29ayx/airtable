@@ -7,6 +7,7 @@ import { TableTabsHeader } from "@/components/table/table-tabs-header"
 import { TableSidebar } from "@/components/table/table-sidebar"
 import { TableToolbar } from "@/components/table/table-toolbar"
 import { DataTable } from "@/components/table/data-table"
+import { api } from "@/trpc/react"
 
 interface EditableTableProps {
   baseId: string;
@@ -14,6 +15,29 @@ interface EditableTableProps {
 }
 
 export default function EditableTable({ baseId, baseName = "Untitled Base" }: EditableTableProps) {
+  // Get utils for invalidating queries
+  const utils = api.useUtils();
+  
+  // Fetch all tables for this base
+  const { data: allTables, isLoading: tablesLoading } = api.table.getAllTables.useQuery({ baseId });
+  
+  // State for managing active table
+  const [activeTableId, setActiveTableId] = useState<string | undefined>();
+  
+  // Set active table when tables load
+  React.useEffect(() => {
+    if (allTables && allTables.length > 0 && !activeTableId) {
+      setActiveTableId(allTables[0]!.id);
+    }
+  }, [allTables, activeTableId]);
+
+  // Invalidate table data when switching tables
+  React.useEffect(() => {
+    if (activeTableId) {
+      void utils.table.getTableData.invalidate({ baseId, tableId: activeTableId });
+    }
+  }, [activeTableId, baseId, utils.table.getTableData]);
+
   const { 
     table, 
     tableData, 
@@ -22,32 +46,37 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
     rows,
     searchTerm,
     setSearchTerm
-  } = useTableData(baseId);
+  } = useTableData(baseId, activeTableId);
 
-  // State for managing multiple tables
-  const [tables, setTables] = useState([
-    { id: 'table-1', name: 'Table 1', table: table }
-  ]);
-  const [activeTab, setActiveTab] = useState('table-1');
+  // Create new table mutation
+  const createTableMutation = api.table.createTable.useMutation({
+    onSuccess: (newTable: { id: string; name: string }) => {
+      // Invalidate the tables list to show the new table
+      void utils.table.getAllTables.invalidate({ baseId });
+      // Set the new table as active
+      setActiveTableId(newTable.id);
+    },
+  });
 
   // Add new table
   const addNewTable = () => {
-    const newTableId = `table-${tables.length + 1}`;
-    const newTable = {
-      id: newTableId,
-      name: `Table ${tables.length + 1}`,
-      table: table // For now, using the same table data
-    };
-    setTables([...tables, newTable]);
-    setActiveTab(newTableId);
+    const tableCount = allTables ? allTables.length + 1 : 1;
+    createTableMutation.mutate({
+      baseId,
+      name: `Table ${tableCount}`,
+    });
   };
 
   // Early returns
-  if (isLoading && !optimisticData) {
+  if (tablesLoading || (isLoading && !optimisticData)) {
     return <div className="flex items-center justify-center min-h-screen">Loading table...</div>;
   }
 
-  if (!tableData && !optimisticData) {
+  if (!allTables || allTables.length === 0) {
+    return <div className="flex items-center justify-center min-h-screen">No tables found</div>;
+  }
+
+  if (!activeTableId || (!tableData && !optimisticData)) {
     return <div className="flex items-center justify-center min-h-screen">Table not found</div>;
   }
 
@@ -58,9 +87,9 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
       
       {/* Secondary Header with Table Tabs */}
       <TableTabsHeader 
-        tables={tables}
-        activeTable={activeTab}
-        onTableChange={setActiveTab}
+        tables={allTables.map((t: { id: string; name: string }) => ({ id: t.id, name: t.name }))}
+        activeTable={activeTableId}
+        onTableChange={setActiveTableId}
         onAddTable={addNewTable}
       />
       
