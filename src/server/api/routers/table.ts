@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { bases, tables, columns, cells } from "@/server/db/schema";
+import { bases, tables, columns, cells, rows } from "@/server/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 export const tableRouter = createTRPCRouter({
@@ -39,6 +39,13 @@ export const tableRouter = createTRPCRouter({
         .where(eq(columns.tableId, table.id))
         .orderBy(columns.order);
 
+      // Get all rows with proper ordering
+      const tableRows = await ctx.db
+        .select()
+        .from(rows)
+        .where(eq(rows.tableId, table.id))
+        .orderBy(rows.order, rows.createdAt);
+
       // Get all cells
       const allCells = await ctx.db
         .select()
@@ -46,24 +53,26 @@ export const tableRouter = createTRPCRouter({
         .where(eq(cells.tableId, table.id));
 
       // Group cells by rowId
-      const rowsMap = new Map<string, Record<string, string>>();
+      const cellsMap = new Map<string, Record<string, string>>();
       allCells.forEach(cell => {
-        if (!rowsMap.has(cell.rowId)) {
-          rowsMap.set(cell.rowId, {});
+        if (!cellsMap.has(cell.rowId)) {
+          cellsMap.set(cell.rowId, {});
         }
-        rowsMap.get(cell.rowId)![cell.columnId] = cell.value || "";
+        cellsMap.get(cell.rowId)![cell.columnId] = cell.value || "";
       });
 
-      // Convert to array format
-      const rows = Array.from(rowsMap.entries()).map(([rowId, data]) => ({
-        id: rowId,
-        ...data,
+      // Convert to array format with proper ordering
+      const rowsData = tableRows.map(row => ({
+        id: row.id,
+        order: row.order,
+        createdAt: row.createdAt,
+        ...cellsMap.get(row.id) || {},
       }));
 
       return {
         table,
         columns: tableColumns,
-        rows,
+        rows: rowsData,
       };
     }),
 
@@ -169,6 +178,7 @@ export const tableRouter = createTRPCRouter({
   addRow: protectedProcedure
     .input(z.object({
       baseId: z.string(),
+      tempRowId: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       // Verify base ownership
@@ -193,8 +203,22 @@ export const tableRouter = createTRPCRouter({
         .from(columns)
         .where(eq(columns.tableId, table.id));
 
-      // Generate new row ID
-      const rowId = crypto.randomUUID();
+      // Get max order for new row positioning
+      const [maxOrder] = await ctx.db
+        .select({ max: rows.order })
+        .from(rows)
+        .where(eq(rows.tableId, table.id))
+        .orderBy(desc(rows.order))
+        .limit(1);
+
+      // Create new row entry
+      const [newRow] = await ctx.db
+        .insert(rows)
+        .values({
+          tableId: table.id,
+          order: (maxOrder?.max || 0) + 1,
+        })
+        .returning();
 
       // Create empty cells for each column
       if (tableColumns.length > 0) {
@@ -202,13 +226,18 @@ export const tableRouter = createTRPCRouter({
           tableColumns.map(col => ({
             tableId: table.id,
             columnId: col.id,
-            rowId,
+            rowId: newRow.id,
             value: "",
           }))
         );
       }
 
-      return { rowId };
+      return { 
+        id: newRow.id,
+        order: newRow.order,
+        createdAt: newRow.createdAt,
+        tempRowId: input.tempRowId,
+      };
     }),
 
   // Delete row
@@ -226,10 +255,23 @@ export const tableRouter = createTRPCRouter({
 
       if (!base) throw new Error("Base not found");
 
+      // Get table
+      const [table] = await ctx.db
+        .select()
+        .from(tables)
+        .where(eq(tables.baseId, input.baseId));
+
+      if (!table) throw new Error("Table not found");
+
       // Delete all cells for this row
       await ctx.db
         .delete(cells)
-        .where(and(eq(cells.tableId, base.id), eq(cells.rowId, input.rowId)));
+        .where(and(eq(cells.tableId, table.id), eq(cells.rowId, input.rowId)));
+
+      // Delete row entry
+      await ctx.db
+        .delete(rows)
+        .where(eq(rows.id, input.rowId));
 
       return { success: true };
     }),

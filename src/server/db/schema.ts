@@ -169,6 +169,7 @@ export const tableRelations = relations(tables, ({ one, many }) => ({
   base: one(bases, { fields: [tables.baseId], references: [bases.id] }),
   columns: many(columns),
   cells: many(cells),
+  rows: many(rows),
 }));
 
 // Columns schema - Each table can have multiple columns
@@ -238,4 +239,37 @@ export const cells = createTable(
 export const cellRelations = relations(cells, ({ one }) => ({
   table: one(tables, { fields: [cells.tableId], references: [tables.id] }),
   column: one(columns, { fields: [cells.columnId], references: [columns.id] }),
+  row: one(rows, { fields: [cells.rowId], references: [rows.id] }),
+}));
+
+// Rows schema - Track row metadata and ordering
+export const rows = createTable(
+  "row",
+  (d) => ({
+    id: d
+      .varchar({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    tableId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => tables.id),
+    order: d.integer().notNull().default(0),
+    createdAt: d
+      .timestamp({ withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: d.timestamp({ withTimezone: true }).$onUpdate(() => new Date()),
+  }),
+  (t) => [
+    index("row_table_id_idx").on(t.tableId),
+    index("row_order_idx").on(t.tableId, t.order),
+    index("row_created_at_idx").on(t.tableId, t.createdAt),
+  ],
+);
+
+export const rowRelations = relations(rows, ({ one, many }) => ({
+  table: one(tables, { fields: [rows.tableId], references: [tables.id] }),
+  cells: many(cells),
 }));

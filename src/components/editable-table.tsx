@@ -17,9 +17,12 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
   const { 
     table, 
     tableData, 
+    optimisticData, 
     isLoading, 
     columns, 
-    rows 
+    rows,
+    editingCell,
+    setEditingCell 
   } = useTableData(baseId);
 
   // State for managing multiple tables
@@ -41,11 +44,11 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
   };
 
   // Early returns
-  if (isLoading && !tableData) {
+  if (isLoading && !optimisticData) {
     return <div className="flex items-center justify-center min-h-screen">Loading table...</div>;
   }
 
-  if (!tableData) {
+  if (!tableData && !optimisticData) {
     return <div className="flex items-center justify-center min-h-screen">Table not found</div>;
   }
 
@@ -80,6 +83,9 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
           <div className="border-t border-gray-200 px-4 py-2 flex items-center justify-end">
             <span className="text-xs text-gray-500">
               {rows.length} records
+              {optimisticData && tableData && optimisticData !== tableData && (
+                <span className="ml-2 text-blue-500">• Syncing...</span>
+              )}
             </span>
           </div>
         </main>

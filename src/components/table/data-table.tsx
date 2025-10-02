@@ -9,9 +9,9 @@ import { EditableCell } from "./editable-cell"
 
 interface DataTableProps {
   table: any
-  addRow: () => Promise<void>
-  addColumn: () => Promise<void>
-  deleteRow: (rowId: string) => Promise<void>
+  addRow: () => void
+  addColumn: () => void
+  deleteRow: (rowId: string) => void
 }
 
 export const DataTable: React.FC<DataTableProps> = ({ 
@@ -63,10 +63,10 @@ export const DataTable: React.FC<DataTableProps> = ({
               ))}
               {/* Add Column Template */}
               <th className="border border-gray-200 px-2 py-1 w-10">
-              <button
-                className="flex items-center justify-center h-5 w-6"
-                onClick={() => addColumn()}
-              >
+                <button
+                  className="flex items-center justify-center h-5 w-6"
+                  onClick={addColumn}
+                >
                   <Plus className="h-3 w-3" />
                 </button>
               </th>
@@ -130,7 +130,7 @@ export const DataTable: React.FC<DataTableProps> = ({
             >
               <button
                 className="flex items-center justify-center gap-1 w-full h-8 text-xs"
-                onClick={() => addRow()}
+                onClick={addRow}
               >
                 <Plus className="h-3 w-3" />
                 <span>Add row</span>
