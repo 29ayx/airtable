@@ -9,16 +9,80 @@ interface DataTableProps {
   table: any
   addRow: () => void
   addColumn: () => void
+  searchTerm?: string
 }
 
 export const DataTable: React.FC<DataTableProps> = ({ 
   table, 
   addRow, 
-  addColumn
+  addColumn,
+  searchTerm = ''
 }) => {
   // Handle global keyboard and mouse events
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't handle keyboard events if user is typing in an input field
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') {
+        return;
+      }
+      
+      const navigateCell = table.options.meta?.navigateCell;
+      const setFocusedCell = table.options.meta?.setFocusedCell;
+      const focusedCell = table.options.meta?.focusedCell;
+      
+      // Handle arrow key navigation
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        
+        // If no cell is focused, focus the first cell
+        if (!focusedCell && setFocusedCell) {
+          const rows = table.getRowModel().rows;
+          const columns = table.getVisibleLeafColumns();
+          if (rows.length > 0 && columns.length > 0) {
+            const firstRow = rows[0];
+            const firstColumn = columns[0];
+            if (firstRow && firstColumn) {
+              setFocusedCell({ 
+                rowId: firstRow.original?.id ?? firstRow.id, 
+                columnId: firstColumn.id 
+              });
+            }
+          }
+          return;
+        }
+        
+        if (navigateCell) {
+          switch (e.key) {
+            case 'ArrowUp':
+              navigateCell('up');
+              break;
+            case 'ArrowDown':
+              navigateCell('down');
+              break;
+            case 'ArrowLeft':
+              navigateCell('left');
+              break;
+            case 'ArrowRight':
+              navigateCell('right');
+              break;
+          }
+        }
+        return;
+      }
+      
+      // Handle Enter key to start editing focused cell
+      if (e.key === 'Enter' && focusedCell) {
+        const setEditingCell = table.options.meta?.setEditingCell;
+        const clearSelection = table.options.meta?.clearSelection;
+        if (setEditingCell) {
+          e.preventDefault();
+          setEditingCell(focusedCell);
+          clearSelection?.(); // Clear selection when starting to edit
+        }
+        return;
+      }
+      
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const deleteSelectedCells = table.options.meta?.deleteSelectedCells;
         if (deleteSelectedCells) {
@@ -51,7 +115,10 @@ export const DataTable: React.FC<DataTableProps> = ({
   }, [table]);
 
   return (
-    <div className="flex-1 overflow-auto bg-[#f6f8fc]">
+    <div 
+      className="flex-1 overflow-auto bg-[#f6f8fc] outline-none" 
+      tabIndex={0}
+    >
       <table className="border-collapse bg-white">
         <thead>
           {table.getHeaderGroups().map((headerGroup: any) => (
@@ -71,17 +138,12 @@ export const DataTable: React.FC<DataTableProps> = ({
                   className="border border-gray-200 px-2 py-1 relative"
                   style={{ width: header.getSize() }}
                 >
-                  {header.isPlaceholder ? null : (
-                    <div
-                      className="cursor-pointer select-none text-xs"
-                      onClick={header.column.getToggleSortingHandler()}
-                    >
-                      <ColumnHeader
-                        column={header.column}
-                        table={table}
-                      />
-                    </div>
-                  )}
+                   {header.isPlaceholder ? null : (
+                     <ColumnHeader
+                       column={header.column}
+                       table={table}
+                     />
+                   )}
                   {/* Column Resize Handle */}
                   <div
                     className="absolute right-0 top-0 h-full w-1 bg-transparent hover:bg-blue-500 cursor-col-resize"
@@ -146,6 +208,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                     row={row}
                     column={cell.column}
                     table={table}
+                    searchTerm={searchTerm}
                   />
                 </td>
               ))}

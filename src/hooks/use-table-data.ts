@@ -15,6 +15,7 @@ export function useTableData(baseId: string) {
   // Core table state
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [searchTerm, setSearchTerm] = useState<string>('')
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
   const [optimisticData, setOptimisticData] = useState<{
     columns: TableColumn[];
@@ -23,6 +24,7 @@ export function useTableData(baseId: string) {
   
   // Editing state
   const [editingCell, setEditingCell] = useState<{rowId: string, columnId: string} | null>(null)
+  const [focusedCell, setFocusedCell] = useState<{rowId: string, columnId: string} | null>(null)
   
   // Refs for tracking temp data and pending operations
   const pendingUpdates = useRef<Map<string, CellUpdate>>(new Map())
@@ -83,6 +85,49 @@ export function useTableData(baseId: string) {
     return cols;
   }, [optimisticData?.columns, tableData?.columns]);
 
+  // Navigation functions
+  const navigateCell = React.useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
+    if (!focusedCell) return;
+    
+    const rows = optimisticData?.rows ?? tableData?.rows ?? [];
+    const columns = optimisticData?.columns ?? tableData?.columns ?? [];
+    
+    if (!rows.length || !columns.length) return;
+    
+    const currentRowIndex = rows.findIndex(row => row.id === focusedCell.rowId);
+    const currentColumnIndex = columns.findIndex(col => col.id === focusedCell.columnId);
+    
+    if (currentRowIndex === -1 || currentColumnIndex === -1) return;
+    
+    let newRowIndex = currentRowIndex;
+    let newColumnIndex = currentColumnIndex;
+    
+    switch (direction) {
+      case 'up':
+        newRowIndex = Math.max(0, currentRowIndex - 1);
+        break;
+      case 'down':
+        newRowIndex = Math.min(rows.length - 1, currentRowIndex + 1);
+        break;
+      case 'left':
+        newColumnIndex = Math.max(0, currentColumnIndex - 1);
+        break;
+      case 'right':
+        newColumnIndex = Math.min(columns.length - 1, currentColumnIndex + 1);
+        break;
+    }
+    
+    if (newRowIndex !== currentRowIndex || newColumnIndex !== currentColumnIndex) {
+      const newRow = rows[newRowIndex];
+      const newColumn = columns[newColumnIndex];
+      if (newRow && newColumn) {
+        setFocusedCell({ rowId: newRow.id, columnId: newColumn.id });
+        // Clear selection when navigating
+        cellSelection.clearSelection();
+      }
+    }
+  }, [focusedCell, optimisticData?.rows, optimisticData?.columns, tableData?.rows, tableData?.columns]);
+
   // Create table instance
   const table = useReactTable({
     data: optimisticData?.rows ?? tableData?.rows ?? [],
@@ -111,6 +156,9 @@ export function useTableData(baseId: string) {
       updateColumnName: operations.updateColumnName,
       editingCell,
       setEditingCell,
+      focusedCell,
+      setFocusedCell,
+      navigateCell,
       selectedCells: cellSelection.selectedCells,
       startSelection: cellSelection.startSelection,
       updateSelection: (endRowId: string, endColumnId: string) => 
@@ -130,9 +178,16 @@ export function useTableData(baseId: string) {
     columns: optimisticData?.columns ?? tableData?.columns ?? [],
     rows: optimisticData?.rows ?? tableData?.rows ?? [],
     tableInfo: tableData?.table ?? null,
+    // Search state
+    searchTerm,
+    setSearchTerm,
     // Editing state
     editingCell,
     setEditingCell,
+    // Focus state
+    focusedCell,
+    setFocusedCell,
+    navigateCell,
     // Selection state
     selectedCells: cellSelection.selectedCells,
     startSelection: cellSelection.startSelection,

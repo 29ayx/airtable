@@ -1,7 +1,8 @@
 "use client"
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { 
   ChevronDown, 
   Grid3x3, 
@@ -12,10 +13,35 @@ import {
   Palette, 
   MoreVertical, 
   Share2, 
-  Search 
+  Search,
+  X
 } from "lucide-react"
 
-export const TableToolbar: React.FC = () => {
+interface TableToolbarProps {
+  searchTerm?: string;
+  setSearchTerm?: (value: string) => void;
+}
+
+export const TableToolbar: React.FC<TableToolbarProps> = ({ 
+  searchTerm = '', 
+  setSearchTerm 
+}) => {
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState(searchTerm);
+
+  // Debounce search input to avoid too many re-renders
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm?.(searchValue);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchValue, setSearchTerm]);
+
+  // Sync with external searchTerm changes
+  useEffect(() => {
+    setSearchValue(searchTerm);
+  }, [searchTerm]);
   return (
     <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2">
       <div className="flex items-center gap-2">
@@ -55,15 +81,43 @@ export const TableToolbar: React.FC = () => {
           <Share2 className="h-4 w-4" />
           Share and sync
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <Search className="h-4 w-4 text-gray-700" />
+        {isSearchOpen ? (
+          <div className="flex items-center gap-1">
+            <Input
+              placeholder="Search..."
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              className="h-8 w-48 text-sm"
+              autoFocus
+            />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8"
+              onClick={() => {
+                setIsSearchOpen(false);
+                setSearchValue('');
+                setSearchTerm?.('');
+              }}
+            >
+              <X className="h-4 w-4 text-gray-700" />
+            </Button>
+          </div>
+        ) : (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8"
+            onClick={() => setIsSearchOpen(true)}
+          >
+            <Search className="h-4 w-4 text-gray-700" />
+          </Button>
+        )}
+        <Button variant="ghost" size="sm" className="h-8 gap-1 text-sm text-gray-700">
+          Tools
+          <ChevronDown className="h-4 w-4" />
         </Button>
       </div>
-
-      <Button variant="ghost" size="sm" className="h-8 gap-1 text-sm text-gray-700">
-        Tools
-        <ChevronDown className="h-4 w-4" />
-      </Button>
     </div>
   )
 }

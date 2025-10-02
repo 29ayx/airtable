@@ -8,16 +8,26 @@ interface EditableCellProps {
   row: Row<any>
   column: any
   table: any
+  searchTerm?: string
 }
 
-export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, table }) => {
+export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, table, searchTerm = '' }) => {
   const [editValue, setEditValue] = useState(value ?? '')
+  
+  // Function to check if cell should be highlighted
+  const shouldHighlight = (text: string, searchTerm: string) => {
+    if (!searchTerm || !text) return false;
+    return text.toLowerCase().includes(searchTerm.toLowerCase());
+  };
   
   // Get editing state from table meta
   const editingCell = table.options.meta?.editingCell
   const setEditingCell = table.options.meta?.setEditingCell
+  const focusedCell = table.options.meta?.focusedCell
+  const setFocusedCell = table.options.meta?.setFocusedCell
   const rowId = row.original?.id ?? row.id;
   const isEditing = editingCell?.rowId === rowId && editingCell?.columnId === column.id
+  const isFocused = focusedCell?.rowId === rowId && focusedCell?.columnId === column.id
   
   // Get selection state from table meta
   const selectedCells = table.options.meta?.selectedCells ?? new Set()
@@ -42,7 +52,14 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
     const rowId = row.original?.id ?? row.id;
     setEditValue(value ?? '')
     setEditingCell({ rowId, columnId: column.id })
+    setFocusedCell?.({ rowId, columnId: column.id })
     clearSelection?.() // Clear selection when starting to edit
+  }
+
+  const handleCellClick = () => {
+    const rowId = row.original?.id ?? row.id;
+    setFocusedCell?.({ rowId, columnId: column.id })
+    clearSelection?.() // Clear selection when focusing a cell
   }
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -157,12 +174,24 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
     )
   }
 
+  const isHighlighted = shouldHighlight(String(value ?? ''), searchTerm);
+
   return (
     <div
       className={`w-full h-full text-sm cursor-pointer p-0 m-0 ${
-        isSelected ? 'bg-blue-100 border-blue-300' : ''
+        isSelected ? 'bg-blue-100 border-blue-300' : 
+        isFocused ? 'ring-2 ring-blue-500 ring-inset bg-blue-50' :
+        isHighlighted ? 'bg-yellow-200' : ''
       }`}
-      onClick={startEditing}
+      onClick={(e) => {
+        // If cell is already focused, start editing on second click
+        if (isFocused) {
+          startEditing();
+        } else {
+          // Otherwise, just focus the cell
+          handleCellClick();
+        }
+      }}
       onMouseDown={handleMouseDown}
       onMouseEnter={handleMouseEnter}
       onMouseUp={handleMouseUp}

@@ -29,6 +29,20 @@
       "when": 1759375118762,
       "tag": "0003_material_mephisto",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1759380059064,
+      "tag": "0004_workable_madripoor",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1759380446829,
+      "tag": "0005_large_red_shift",
+      "breakpoints": true
     }
   ]
 }

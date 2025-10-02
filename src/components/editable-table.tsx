@@ -19,7 +19,9 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
     tableData, 
     optimisticData, 
     isLoading, 
-    rows
+    rows,
+    searchTerm,
+    setSearchTerm
   } = useTableData(baseId);
 
   // State for managing multiple tables
@@ -63,7 +65,10 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
       />
       
       {/* Toolbar - Full Width Overlapping Sidebar */}
-      <TableToolbar />
+      <TableToolbar 
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+      />
       
       <div className="flex flex-1 overflow-hidden">
         <TableSidebar />
@@ -73,6 +78,7 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
             table={table}
             addRow={(table.options.meta as any)?.addRow}
             addColumn={(table.options.meta as any)?.addColumn}
+            searchTerm={searchTerm}
           />
           
           {/* Footer */}
