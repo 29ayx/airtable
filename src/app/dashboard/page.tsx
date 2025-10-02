@@ -15,8 +15,6 @@ import { api } from "@/trpc/react";
 import Link from "next/link";
 import { useState } from "react";
 
-import data from "./data.json";
-
 export default function Page() {
   const { user, name, email, image, isLoading } = useUser();
   const { data: bases, isLoading: basesLoading, refetch } = api.base.getAll.useQuery();

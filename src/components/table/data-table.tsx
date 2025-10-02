@@ -20,6 +20,39 @@ export const DataTable: React.FC<DataTableProps> = ({
   addColumn, 
   deleteRow 
 }) => {
+  // Handle global keyboard and mouse events
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const deleteSelectedCells = table.options.meta?.deleteSelectedCells;
+        if (deleteSelectedCells) {
+          e.preventDefault();
+          deleteSelectedCells();
+        }
+      }
+      if (e.key === 'Escape') {
+        const clearSelection = table.options.meta?.clearSelection;
+        if (clearSelection) {
+          clearSelection();
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      const endSelection = table.options.meta?.endSelection;
+      if (endSelection) {
+        endSelection();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [table]);
 
   return (
     <div className="flex-1 overflow-auto bg-[#f6f8fc]">

@@ -19,6 +19,17 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
   const setEditingCell = table.options.meta?.setEditingCell
   const rowId = row.original?.id || row.id;
   const isEditing = editingCell?.rowId === rowId && editingCell?.columnId === column.id
+  
+  // Get selection state from table meta
+  const selectedCells = table.options.meta?.selectedCells || new Set()
+  const startSelection = table.options.meta?.startSelection
+  const updateSelection = table.options.meta?.updateSelection
+  const endSelection = table.options.meta?.endSelection
+  const clearSelection = table.options.meta?.clearSelection
+  const isSelecting = table.options.meta?.isSelecting
+  
+  const cellKey = `${rowId}-${column.id}`
+  const isSelected = selectedCells.has(cellKey)
 
   const handleSave = () => {
     if (editValue !== value) {
@@ -32,6 +43,26 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
     const rowId = row.original?.id || row.id;
     setEditValue(value || '')
     setEditingCell({ rowId, columnId: column.id })
+    clearSelection?.() // Clear selection when starting to edit
+  }
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isEditing) return; // Don't start selection if editing
+    
+    e.preventDefault();
+    startSelection?.(rowId, column.id);
+  }
+
+  const handleMouseEnter = () => {
+    if (isSelecting && updateSelection) {
+      updateSelection(rowId, column.id);
+    }
+  }
+
+  const handleMouseUp = () => {
+    if (isSelecting) {
+      endSelection?.();
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -96,7 +127,7 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
       handleSave()
       // Move to next cell (right)
       const columns = table.getVisibleLeafColumns()
-      const currentColumnIndex = columns.findIndex(col => col.id === column.id)
+      const currentColumnIndex = columns.findIndex((col: any) => col.id === column.id)
       const nextColumnIndex = e.shiftKey ? currentColumnIndex - 1 : currentColumnIndex + 1
       
       if (nextColumnIndex >= 0 && nextColumnIndex < columns.length) {
@@ -129,8 +160,13 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
 
   return (
     <div
-      className="w-full h-full text-sm cursor-pointer p-0 m-0"
+      className={`w-full h-full text-sm cursor-pointer p-0 m-0 ${
+        isSelected ? 'bg-blue-100 border-blue-300' : ''
+      }`}
       onClick={startEditing}
+      onMouseDown={handleMouseDown}
+      onMouseEnter={handleMouseEnter}
+      onMouseUp={handleMouseUp}
       data-row-index={row.index}
       data-column-id={column.id}
     >

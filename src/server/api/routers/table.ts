@@ -30,6 +30,10 @@ export const tableRouter = createTRPCRouter({
             baseId: input.baseId,
           })
           .returning();
+          
+        if (!table) {
+          throw new Error("Failed to create table");
+        }
       }
 
       // Get columns
@@ -219,6 +223,10 @@ export const tableRouter = createTRPCRouter({
           order: (maxOrder?.max || 0) + 1,
         })
         .returning();
+
+      if (!newRow) {
+        throw new Error("Failed to create row");
+      }
 
       // Create empty cells for each column
       if (tableColumns.length > 0) {

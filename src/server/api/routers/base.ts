@@ -16,11 +16,19 @@ export const baseRouter = createTRPCRouter({
         userId: ctx.session.user.id,
       }).returning();
       
+      if (!base) {
+        throw new Error("Failed to create base");
+      }
+      
       // Create default table
       const [table] = await ctx.db.insert(tables).values({
         name: "Table 1",
         baseId: base.id,
       }).returning();
+
+      if (!table) {
+        throw new Error("Failed to create table");
+      }
 
       // Create template columns: Name, Age, Email
       const templateColumns = [

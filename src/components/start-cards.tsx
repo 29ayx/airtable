@@ -3,7 +3,7 @@ import { Database } from "lucide-react";
 import { PiGridFour } from "react-icons/pi";
 import { GoArrowUp } from "react-icons/go";
 import { PiTable } from "react-icons/pi";
-import { ReactNode } from "react";
+import { type ReactNode } from "react";
 
 interface StartCardData {
   icon: ReactNode;
