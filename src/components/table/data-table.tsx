@@ -35,27 +35,16 @@ export const DataTable: React.FC<DataTableProps> = ({
   // Handle delete key with react-hotkeys-hook
   useHotkeys('delete, backspace', (e) => {
     e.preventDefault();
-    console.log('🗑️ Delete key pressed (hotkeys)');
-    
-    console.log('Delete debug:', { 
-      deleteSelectedCells: !!deleteSelectedCells, 
-      selectedCells: selectedCells?.size || 0,
-      focusedCell: focusedCell,
-      updateData: !!updateData
-    });
     
     // If there are selected cells, delete them
     if (selectedCells && selectedCells.size > 0 && deleteSelectedCells) {
-      console.log('🗑️ Deleting selected cells:', selectedCells.size);
       deleteSelectedCells();
     }
     // If no selected cells but there's a focused cell, clear that cell
     else if (focusedCell && updateData) {
-      console.log('🗑️ Clearing focused cell:', focusedCell);
       updateData(focusedCell.rowId, focusedCell.columnId, '');
     }
     else {
-      console.log('❌ No cells to delete - trying to focus first cell');
       // If nothing is focused, try to focus the first cell
       if (!focusedCell && setFocusedCell) {
         const rows = table.getRowModel().rows;
@@ -68,7 +57,6 @@ export const DataTable: React.FC<DataTableProps> = ({
               rowId: firstRow.original?.id ?? firstRow.id, 
               columnId: firstColumn.id 
             };
-            console.log('🎯 Focusing first cell:', firstCellId);
             setFocusedCell(firstCellId);
           }
         }
@@ -81,6 +69,11 @@ export const DataTable: React.FC<DataTableProps> = ({
 
   // Handle arrow keys
   useHotkeys('up, down, left, right', (e, handler) => {
+    // Don't navigate if we're currently editing a cell
+    if (table.options.meta?.editingCell) {
+      return;
+    }
+    
     e.preventDefault();
     
     // If no cell is focused, focus the first cell
@@ -91,30 +84,19 @@ export const DataTable: React.FC<DataTableProps> = ({
         const firstRow = rows[0];
         const firstColumn = columns[0];
         if (firstRow && firstColumn) {
-          setFocusedCell({ 
+          const firstCellId = { 
             rowId: firstRow.original?.id ?? firstRow.id, 
             columnId: firstColumn.id 
-          });
+          };
+          setFocusedCell(firstCellId);
         }
       }
       return;
     }
     
     if (navigateCell) {
-      switch (handler.keys?.[0]) {
-        case 'up':
-          navigateCell('up');
-          break;
-        case 'down':
-          navigateCell('down');
-          break;
-        case 'left':
-          navigateCell('left');
-          break;
-        case 'right':
-          navigateCell('right');
-          break;
-      }
+      const keyPressed = handler.keys?.[0];
+      navigateCell(keyPressed as any);
     }
   }, {
     enableOnFormTags: false,
@@ -155,10 +137,50 @@ export const DataTable: React.FC<DataTableProps> = ({
   useHotkeys('escape', (e) => {
     e.preventDefault();
     clearSelection?.();
+    setEditingCell?.(null); // Exit edit mode on escape
   }, {
     enableOnFormTags: false,
     preventDefault: true
   });
+
+  // Handle typing to start edit mode - use a global keydown listener for better character capture
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if we have a focused cell and we're not already editing
+      if (!focusedCell || table.options.meta?.editingCell) return;
+      
+      // Don't handle if target is an input, textarea, or contenteditable
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') {
+        return;
+      }
+      
+      // Don't handle modifier keys, function keys, or special keys
+      if (e.ctrlKey || e.metaKey || e.altKey || e.key.length > 1) {
+        return;
+      }
+      
+      // Handle printable characters (letters, numbers, symbols, space)
+      if (e.key.match(/^[a-zA-Z0-9\s\W]$/)) {
+        e.preventDefault();
+        // Start editing with the typed character
+        setEditingCell?.(focusedCell);
+        
+        // Set a timeout to allow the input to render, then set its value
+        setTimeout(() => {
+          const inputs = document.querySelectorAll('input[autofocus]');
+          const activeInput = inputs[inputs.length - 1] as HTMLInputElement; // Get the most recent autofocus input
+          if (activeInput) {
+            activeInput.value = e.key;
+            activeInput.setSelectionRange(1, 1); // Put cursor at end
+          }
+        }, 0);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [focusedCell, setEditingCell, table.options.meta?.editingCell]);
 
   // Handle mouse events
   React.useEffect(() => {
@@ -176,8 +198,23 @@ export const DataTable: React.FC<DataTableProps> = ({
     };
   }, [table]);
 
+  // Auto-focus the table container when it mounts so arrow keys work immediately
+  const tableContainerRef = React.useRef<HTMLDivElement>(null);
+  
+  React.useEffect(() => {
+    // Focus the table container after a short delay to ensure it's rendered
+    const timer = setTimeout(() => {
+      if (tableContainerRef.current) {
+        tableContainerRef.current.focus();
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div 
+      ref={tableContainerRef}
       className="flex-1 overflow-auto bg-[#f6f8fc] outline-none" 
       tabIndex={0}
     >

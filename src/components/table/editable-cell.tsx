@@ -54,15 +54,19 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
 
   const startEditing = () => {
     const rowId = row.original?.id ?? row.id;
+    const cellId = { rowId, columnId: column.id };
     setEditValue(value ?? '')
-    setEditingCell({ rowId, columnId: column.id })
-    setFocusedCell?.({ rowId, columnId: column.id })
+    // Always sync both edit and focus state
+    setEditingCell(cellId)
+    setFocusedCell?.(cellId)
     clearSelection?.() // Clear selection when starting to edit
     setSelectedColumn?.(null) // Clear column selection when starting to edit
   }
 
   const handleCellClick = () => {
     const rowId = row.original?.id ?? row.id;
+    // Exit edit mode when clicking on a different cell
+    setEditingCell?.(null);
     setFocusedCell?.({ rowId, columnId: column.id })
     clearSelection?.() // Clear selection when focusing a cell
     setSelectedColumn?.(null) // Clear column selection when focusing a cell
@@ -93,12 +97,10 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
       
       if (e.shiftKey) {
         // Shift+Enter: Save current cell immediately, then create new row
-        console.log('🆕 Shift+Enter pressed - saving current cell and creating new row');
         
         // Force immediate save of current cell (bypass debouncing)
         if (editValue !== value) {
           const currentRowId = row.original?.id ?? row.id;
-          console.log('💾 Force saving current cell before new row:', { rowId: currentRowId, columnId: column.id, value: editValue });
           table.options.meta?.updateData(currentRowId, column.id, editValue);
         }
         
@@ -116,10 +118,15 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
           
           if (newRowIndex < rows.length) {
             const newRow = rows[newRowIndex];
-            if (newRow && setEditingCell) {
+            if (newRow && setEditingCell && setFocusedCell) {
               const newRowId = newRow.original?.id ?? newRow.id;
-              console.log('🎯 Auto-selecting cell in new row:', { rowId: newRowId, columnId: column.id });
-              setEditingCell({ rowId: newRowId, columnId: column.id });
+              const newCellId = { rowId: newRowId, columnId: column.id };
+              // Update both editing and focused cell for proper highlighting
+              setFocusedCell(newCellId);
+              setEditingCell(newCellId);
+              // Clear any selections
+              clearSelection?.();
+              setSelectedColumn?.(null);
             }
           }
         }, 150); // Slightly longer wait to ensure row is added
@@ -138,9 +145,15 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
         // Focus next row, same column
         setTimeout(() => {
           const nextRow = rows[nextRowIndex]
-          if (nextRow && setEditingCell) {
+          if (nextRow && setEditingCell && setFocusedCell) {
             const nextRowId = nextRow.original?.id ?? nextRow.id;
-            setEditingCell({ rowId: nextRowId, columnId: column.id })
+            const nextCellId = { rowId: nextRowId, columnId: column.id };
+            // Update both editing and focused cell for proper highlighting
+            setFocusedCell(nextCellId);
+            setEditingCell(nextCellId);
+            // Clear any selections
+            clearSelection?.();
+            setSelectedColumn?.(null);
           }
         }, 10)
       }
@@ -156,27 +169,38 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
         // Same row, next column
         setTimeout(() => {
           const nextColumn = columns[nextColumnIndex]
-          if (nextColumn && setEditingCell) {
-            setEditingCell({ rowId: rowId, columnId: nextColumn.id })
+          if (nextColumn && setEditingCell && setFocusedCell) {
+            const nextCellId = { rowId: rowId, columnId: nextColumn.id };
+            // Update both editing and focused cell for proper highlighting
+            setFocusedCell(nextCellId);
+            setEditingCell(nextCellId);
+            // Clear any selections
+            clearSelection?.();
+            setSelectedColumn?.(null);
           }
         }, 10)
       }
     } else if (e.key === 'Escape') {
       setEditValue(value ?? '')
       setEditingCell(null)
+      // Keep the cell focused when exiting edit mode with Escape
+      const rowId = row.original?.id ?? row.id;
+      setFocusedCell?.({ rowId, columnId: column.id })
     }
   }
 
   if (isEditing) {
     return (
-      <input
-        value={editValue}
-        onChange={(e) => setEditValue(e.target.value)}
-        onBlur={handleSave}
-        onKeyDown={handleKeyDown}
-        className="w-full h-full border-0 outline-0 bg-transparent text-sm p-0 m-0"
-        autoFocus
-      />
+      <div className="w-full h-full flex items-center px-1 ring-2 ring-blue-500 ring-inset bg-blue-50">
+        <input
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+          className="w-full h-full border-0 outline-0 bg-transparent text-sm p-0 m-0"
+          autoFocus
+        />
+      </div>
     )
   }
 

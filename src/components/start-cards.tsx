@@ -36,13 +36,17 @@ const startCardsData: StartCardData[] = [
 
 function StartCard({ data }: { data: StartCardData }) {
   return (
-    <Card className="hover:shadow-md transition-shadow cursor-pointer max-h-[120px] pb-2">
-      <CardContent>
-        <div className="flex items-center gap-3 mb-2">
-          {data.icon}
-          <h3 className="font-semibold text-sm">{data.title}</h3>
+    <Card className="hover:shadow-md transition-shadow cursor-pointer h-24 w-full">
+      <CardContent className="p-4 h-full">
+        <div className="flex items-center gap-3 h-full">
+          <div className="flex-shrink-0">
+            {data.icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-sm mb-1 truncate">{data.title}</h3>
+            <p className="text-xs text-gray-600 line-clamp-2">{data.description}</p>
+          </div>
         </div>
-        <p className="text-sm text-gray-600 leading-relaxed">{data.description}</p>
       </CardContent>
     </Card>
   );
@@ -50,7 +54,7 @@ function StartCard({ data }: { data: StartCardData }) {
 
 export function StartCards() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {startCardsData.map((cardData, index) => (
         <StartCard key={index} data={cardData} />
       ))}

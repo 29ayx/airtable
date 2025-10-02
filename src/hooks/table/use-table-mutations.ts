@@ -85,11 +85,9 @@ export function useTableMutations(config: TableMutationsConfig) {
   const addRowMutation = api.table.addRow.useMutation({
     onSuccess: (newRow, variables) => {
       const tempRowId = variables.tempRowId;
-      console.log('✅ addRowMutation success:', { newRow, tempRowId });
       
       if (tempRowId && tempRowIds.current.has(tempRowId)) {
         const trackedTempData = tempRowData.current.get(tempRowId) || {};
-        console.log('📋 Using real-time tracked temp data:', trackedTempData);
         
         setOptimisticData(prev => {
           if (!prev) return prev;
@@ -102,7 +100,6 @@ export function useTableMutations(config: TableMutationsConfig) {
                 createdAt: newRow.createdAt,
                 ...trackedTempData,
               };
-              console.log('🔄 Replacing temp row with real row:', mergedRow);
               return mergedRow;
             }
             return row;
@@ -117,7 +114,6 @@ export function useTableMutations(config: TableMutationsConfig) {
         // Clean up tracking
         tempRowIds.current.delete(tempRowId);
         tempRowData.current.delete(tempRowId);
-        console.log('🗑️ Cleaned up temp row tracking:', tempRowId);
         
         // Send cell updates for temp row data
         setTimeout(() => {
@@ -125,11 +121,8 @@ export function useTableMutations(config: TableMutationsConfig) {
             trackedTempData[key] && trackedTempData[key] !== ""
           );
           
-          console.log('📤 Sending cell updates for new row:', cellUpdates, trackedTempData);
-          
           cellUpdates.forEach((columnId) => {
             const value = trackedTempData[columnId];
-            console.log('💾 Updating cell:', { rowId: newRow.id, columnId, value });
             updateCellMutation.mutate({
               baseId,
               rowId: newRow.id,
@@ -142,7 +135,6 @@ export function useTableMutations(config: TableMutationsConfig) {
     },
     onError: (error, variables) => {
       const tempRowId = variables.tempRowId;
-      console.log('❌ addRowMutation error:', { error, tempRowId });
       
       if (tempRowId && tempRowIds.current.has(tempRowId)) {
         setOptimisticData(prev => {
@@ -184,6 +176,13 @@ export function useTableMutations(config: TableMutationsConfig) {
       const key = `${variables.rowId}-${variables.columnId}`;
       pendingUpdates.current.delete(key);
       
+      // Don't revert to old data for delete operations (empty values)
+      // This prevents deleted content from reappearing
+      if (variables.value === '') {
+        return;
+      }
+      
+      // For non-delete operations, revert to original value only if we have it
       if (tableData) {
         const originalRow = tableData.rows.find((row) => row.id === variables.rowId);
         if (originalRow) {

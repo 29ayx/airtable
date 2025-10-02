@@ -95,33 +95,43 @@ export function useTableData(baseId: string) {
   }, [optimisticData?.columns, tableData?.columns]);
 
   // Navigation functions
-  const navigateCell = React.useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
-    if (!focusedCell) return;
+  const navigateCell = React.useCallback((direction: 'up' | 'down' | 'left' | 'right' | 'arrowup' | 'arrowdown' | 'arrowleft' | 'arrowright') => {
+    if (!focusedCell) {
+      return;
+    }
     
     const rows = optimisticData?.rows ?? tableData?.rows ?? [];
     const columns = optimisticData?.columns ?? tableData?.columns ?? [];
     
-    if (!rows.length || !columns.length) return;
+    if (!rows.length || !columns.length) {
+      return;
+    }
     
     const currentRowIndex = rows.findIndex(row => row.id === focusedCell.rowId);
     const currentColumnIndex = columns.findIndex(col => col.id === focusedCell.columnId);
     
-    if (currentRowIndex === -1 || currentColumnIndex === -1) return;
+    if (currentRowIndex === -1 || currentColumnIndex === -1) {
+      return;
+    }
     
     let newRowIndex = currentRowIndex;
     let newColumnIndex = currentColumnIndex;
     
     switch (direction) {
       case 'up':
+      case 'arrowup':
         newRowIndex = Math.max(0, currentRowIndex - 1);
         break;
       case 'down':
+      case 'arrowdown':
         newRowIndex = Math.min(rows.length - 1, currentRowIndex + 1);
         break;
       case 'left':
+      case 'arrowleft':
         newColumnIndex = Math.max(0, currentColumnIndex - 1);
         break;
       case 'right':
+      case 'arrowright':
         newColumnIndex = Math.min(columns.length - 1, currentColumnIndex + 1);
         break;
     }
@@ -130,14 +140,18 @@ export function useTableData(baseId: string) {
       const newRow = rows[newRowIndex];
       const newColumn = columns[newColumnIndex];
       if (newRow && newColumn) {
-        setFocusedCell({ rowId: newRow.id, columnId: newColumn.id });
+        const newFocusedCell = { rowId: newRow.id, columnId: newColumn.id };
+        
+        // Exit edit mode when navigating
+        setEditingCell(null);
+        setFocusedCell(newFocusedCell);
         // Clear selection when navigating
         cellSelection.clearSelection();
         // Clear column selection when navigating
         setSelectedColumn(null);
       }
     }
-  }, [focusedCell, optimisticData?.rows, optimisticData?.columns, tableData?.rows, tableData?.columns]);
+  }, [focusedCell, optimisticData?.rows, optimisticData?.columns, tableData?.rows, tableData?.columns, setEditingCell, cellSelection, setSelectedColumn]);
 
   // History management functions
   const addToHistory = React.useCallback((
@@ -197,11 +211,8 @@ export function useTableData(baseId: string) {
 
   // Wrapper function for deleteSelectedCells
   const deleteSelectedCellsWrapper = React.useCallback(() => {
-    console.log('🔥 deleteSelectedCellsWrapper called');
-    console.log('Selected cells:', cellSelection.selectedCells);
     cellSelection.deleteSelectedCells(
       (rowId: string, columnId: string, value: string) => {
-        console.log('🔄 Updating cell in deleteSelectedCells:', { rowId, columnId, value });
         // updateData now handles immediate updates for delete operations
         operations.updateData(rowId, columnId, value, undefined);
       },

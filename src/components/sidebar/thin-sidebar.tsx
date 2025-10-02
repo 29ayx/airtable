@@ -2,16 +2,14 @@
 
 import React from 'react'
 import { useUser } from "@/hooks/use-session"
-import { useRouter } from "next/navigation"
 import Image from "next/image"
-import { HelpCircle, Bell } from "lucide-react"
+import { HelpCircle, Bell, ArrowLeft } from "lucide-react"
 
 export const ThinSidebar: React.FC = () => {
   const { name, image } = useUser();
-  const router = useRouter();
 
   const handleLogoClick = () => {
-    router.push('/dashboard');
+    window.location.href = '/dashboard';
   };
 
   return (
@@ -20,9 +18,14 @@ export const ThinSidebar: React.FC = () => {
       <div className="flex-1 flex items-start">
         <button 
           onClick={handleLogoClick}
-          className="w-8 h-8 rounded flex items-center justify-center hover:bg-gray-100 transition-colors cursor-pointer"
+          className="w-8 h-8 rounded flex items-center justify-center hover:bg-gray-100 transition-colors cursor-pointer group relative"
         >
-          <img src="/assets/airtable_icon_dark.svg" alt="Airtable Icon" className="w-7 h-7" />
+          <img 
+            src="/assets/airtable_icon_dark.svg" 
+            alt="Airtable Icon" 
+            className="w-7 h-7 group-hover:opacity-0 transition-opacity duration-200" 
+          />
+          <ArrowLeft className="w-5 h-5 text-gray-700 absolute opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
         </button>
       </div>
 

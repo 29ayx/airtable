@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { bases, tables, columns, cells } from "@/server/db/schema";
+import { bases, tables, columns, cells, rows } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 
 export const baseRouter = createTRPCRouter({
@@ -116,6 +116,8 @@ export const baseRouter = createTRPCRouter({
       for (const table of baseTables) {
         // Delete cells first
         await ctx.db.delete(cells).where(eq(cells.tableId, table.id));
+        // Delete rows
+        await ctx.db.delete(rows).where(eq(rows.tableId, table.id));
         // Then delete columns
         await ctx.db.delete(columns).where(eq(columns.tableId, table.id));
         // Then delete the table
@@ -126,5 +128,31 @@ export const baseRouter = createTRPCRouter({
       await ctx.db.delete(bases).where(eq(bases.id, input.id));
 
       return { success: true };
+    }),
+
+  rename: protectedProcedure
+    .input(z.object({ 
+      id: z.string(),
+      name: z.string().min(1).max(255)
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // First verify ownership
+      const [baseToUpdate] = await ctx.db
+        .select()
+        .from(bases)
+        .where(eq(bases.id, input.id) && eq(bases.userId, ctx.session.user.id));
+
+      if (!baseToUpdate) {
+        throw new Error("Base not found or unauthorized");
+      }
+
+      // Update the base name
+      const [updatedBase] = await ctx.db
+        .update(bases)
+        .set({ name: input.name })
+        .where(eq(bases.id, input.id))
+        .returning();
+
+      return updatedBase;
     }),
 });

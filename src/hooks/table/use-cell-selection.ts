@@ -82,16 +82,12 @@ export function useCellSelection(): CellSelectionState & CellSelectionActions {
     const changes: Array<{rowId: string, columnId: string, oldValue: string, newValue: string}> = [];
 
     selectedCells.forEach(cellKey => {
-      console.log('🔍 Parsing cell key:', cellKey);
       const [rowId, columnId] = parseCellKey(cellKey);
-      console.log('📝 Parsed result:', { rowId, columnId });
       
       if (rowId && columnId) {
         const oldValue = getCurrentValue(rowId, columnId);
         changes.push({ rowId, columnId, oldValue, newValue: '' });
         updateData(rowId, columnId, '');
-      } else {
-        console.error('❌ Failed to parse cell key:', { cellKey, rowId, columnId });
       }
     });
 

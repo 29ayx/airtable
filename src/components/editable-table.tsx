@@ -54,7 +54,7 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
   return (
     <div className="flex flex-1 flex-col bg-white">
       {/* Main Header */}
-      <TableHeader baseName={baseName} />
+      <TableHeader baseName={baseName} baseId={baseId} />
       
       {/* Secondary Header with Table Tabs */}
       <TableTabsHeader 

@@ -26,15 +26,19 @@ export function useTableOperations(config: TableOperationsConfig) {
   // Immediate update function for delete operations
   const immediateUpdateCell = useCallback((rowId: string, columnId: string, value: string) => {
     const key = `${rowId}-${columnId}`;
-    console.log('⚡ immediateUpdateCell called:', { rowId, columnId, value, key });
     
     if (!rowId || !columnId) {
       console.error('❌ Invalid parameters for updateCell:', { rowId, columnId, value });
       return;
     }
     
-    pendingUpdates.current.set(key, { rowId, columnId, value: value ?? "" });
-    console.log('📡 Sending immediate updateCell mutation:', { baseId, rowId, columnId, value });
+    // Check if there's already a pending update for this cell
+    if (pendingUpdates.current.has(key)) {
+      // Update the pending value to the new one
+      pendingUpdates.current.set(key, { rowId, columnId, value: value ?? "" });
+    } else {
+      pendingUpdates.current.set(key, { rowId, columnId, value: value ?? "" });
+    }
     
     mutations.updateCellMutation.mutate({
       baseId,
@@ -48,10 +52,8 @@ export function useTableOperations(config: TableOperationsConfig) {
   const debouncedUpdateCell = useMemo(() => 
     debounce((rowId: string, columnId: string, value: string) => {
       const key = `${rowId}-${columnId}`;
-      console.log('⏰ debouncedUpdateCell called:', { rowId, columnId, value, key });
       
       if (pendingUpdates.current.has(key)) {
-        console.log('⏸️ Skipping - already pending:', key);
         return;
       }
       
@@ -61,7 +63,6 @@ export function useTableOperations(config: TableOperationsConfig) {
       }
       
       pendingUpdates.current.set(key, { rowId, columnId, value: value ?? "" });
-      console.log('📡 Sending updateCell mutation:', { baseId, rowId, columnId, value });
       
       mutations.updateCellMutation.mutate({
         baseId,
@@ -74,20 +75,14 @@ export function useTableOperations(config: TableOperationsConfig) {
 
   // Core table operations
   const updateData = useCallback((rowId: string, columnId: string, value: string, addToHistory?: (type: 'cell_update', changes: Array<{rowId: string, columnId: string, oldValue: string, newValue: string}>) => void) => {
-    console.log('🔄 updateData called:', { rowId, columnId, value, isTemp: tempRowIds.current.has(rowId) });
-    
     // Handle temporary rows
     if (tempRowIds.current.has(rowId)) {
-      console.log('📝 Updating temp row data in real-time');
-      
       if (!tempRowData.current.has(rowId)) {
         tempRowData.current.set(rowId, {});
       }
       const currentTempData = tempRowData.current.get(rowId)!;
       currentTempData[columnId] = value ?? "";
       tempRowData.current.set(rowId, currentTempData);
-      
-      console.log('💾 Temp row data updated:', { rowId, data: currentTempData });
       
       setOptimisticData(prev => {
         if (!prev) return prev;
@@ -101,8 +96,6 @@ export function useTableOperations(config: TableOperationsConfig) {
       return;
     }
 
-    console.log('💾 Updating real row - optimistic + server call');
-    
     // Get old value for history tracking
     const oldValue = optimisticData?.rows.find(row => row.id === rowId)?.[columnId] ?? '';
     
@@ -123,7 +116,6 @@ export function useTableOperations(config: TableOperationsConfig) {
     
     // Use immediate update for delete operations (empty values)
     if (value === '') {
-      console.log('🗑️ Delete operation detected - using immediate update');
       immediateUpdateCell(rowId, columnId, value);
     } else {
       debouncedUpdateCell(rowId, columnId, value);
@@ -134,8 +126,6 @@ export function useTableOperations(config: TableOperationsConfig) {
     const tempRowId = createTempRowId();
     tempRowIds.current.add(tempRowId);
     tempRowData.current.set(tempRowId, {});
-    
-    console.log('➕ Adding new row with tempId:', tempRowId);
     
     setOptimisticData(prev => {
       if (!prev) return prev;
@@ -149,7 +139,6 @@ export function useTableOperations(config: TableOperationsConfig) {
       };
     });
     
-    console.log('🚀 Calling addRowMutation with:', { baseId, tempRowId });
     mutations.addRowMutation.mutate({ baseId, tempRowId });
   }, [baseId, mutations.addRowMutation, tempRowIds, tempRowData, setOptimisticData]);
 
