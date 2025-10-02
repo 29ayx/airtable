@@ -3,11 +3,10 @@
 import React, { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import { 
   ChevronDown, 
   Grid3x3, 
-  EyeOff, 
-  Filter, 
   Group, 
   ArrowUpDown, 
   Palette, 
@@ -16,18 +15,38 @@ import {
   Search,
   X
 } from "lucide-react"
+import type { ViewFilters, SortConfig } from "@/types/view"
+import type { TableColumn } from "@/types/table"
+import { FilterDropdown } from "./filter-dropdown"
+import { ColumnVisibilityDropdown } from "./column-visibility-dropdown"
+import { SortDialog } from "./sort-dialog"
 
 interface TableToolbarProps {
   searchTerm?: string;
   setSearchTerm?: (value: string) => void;
+  columns?: TableColumn[];
+  filters?: ViewFilters;
+  sorts?: SortConfig[];
+  hiddenColumns?: string[];
+  onFiltersChange?: (filters: ViewFilters) => void;
+  onSortsChange?: (sorts: SortConfig[]) => void;
+  onHiddenColumnsChange?: (hiddenColumns: string[]) => void;
 }
 
 export const TableToolbar: React.FC<TableToolbarProps> = ({ 
   searchTerm = '', 
-  setSearchTerm 
+  setSearchTerm,
+  columns = [],
+  filters,
+  sorts = [],
+  hiddenColumns = [],
+  onFiltersChange,
+  onSortsChange,
+  onHiddenColumnsChange
 }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState(searchTerm);
+  const [isSortDialogOpen, setIsSortDialogOpen] = useState(false);
 
   // Debounce search input to avoid too many re-renders
   useEffect(() => {
@@ -42,6 +61,10 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
   useEffect(() => {
     setSearchValue(searchTerm);
   }, [searchTerm]);
+
+  // Count active filters
+  const activeFiltersCount = (filters?.conditions?.length || 0) + (filters?.groups?.length || 0);
+
   return (
     <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2">
       <div className="flex items-center gap-2">
@@ -53,21 +76,33 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
       </div>
 
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" className="h-8 gap-1 text-sm text-gray-700">
-          <EyeOff className="h-4 w-4" />
-          Hide fields
-        </Button>
-        <Button variant="ghost" size="sm" className="h-8 gap-1 text-sm text-gray-700">
-          <Filter className="h-4 w-4" />
-          Filter
-        </Button>
+        <ColumnVisibilityDropdown
+          columns={columns}
+          hiddenColumns={hiddenColumns}
+          onHiddenColumnsChange={onHiddenColumnsChange || (() => {})}
+        />
+        <FilterDropdown
+          filters={filters}
+          columns={columns}
+          onFiltersChange={onFiltersChange}
+        />
         <Button variant="ghost" size="sm" className="h-8 gap-1 text-sm text-gray-700">
           <Group className="h-4 w-4" />
           Group
         </Button>
-        <Button variant="ghost" size="sm" className="h-8 gap-1 text-sm text-gray-700">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-8 gap-1 text-sm text-gray-700"
+          onClick={() => setIsSortDialogOpen(true)}
+        >
           <ArrowUpDown className="h-4 w-4" />
           Sort
+          {sorts.length > 0 && (
+            <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">
+              {sorts.length}
+            </Badge>
+          )}
         </Button>
         <Button variant="ghost" size="sm" className="h-8 gap-1 text-sm text-gray-700">
           <Palette className="h-4 w-4" />
@@ -118,6 +153,15 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
           <ChevronDown className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Dialog Components */}
+      <SortDialog
+        isOpen={isSortDialogOpen}
+        onClose={() => setIsSortDialogOpen(false)}
+        sorts={sorts}
+        columns={columns}
+        onSortsChange={onSortsChange || (() => {})}
+      />
     </div>
   )
 }

@@ -5,11 +5,69 @@ import { useReactTable, getCoreRowModel, getSortedRowModel, getFilteredRowModel 
 import type { ColumnDef, SortingState, ColumnFiltersState } from '@tanstack/react-table'
 import { api } from "@/trpc/react"
 import type { TableData, TableColumn, TableRow, CellUpdate } from '@/types/table'
+import type { ViewFilters, SortConfig } from '@/types/view'
 
 // Import extracted modules
 import { useCellSelection } from './table/use-cell-selection'
 import { useTableMutations } from './table/use-table-mutations'
 import { useTableOperations } from './table/use-table-operations'
+
+// Filter evaluation function
+function evaluateFilters(filters: ViewFilters, row: TableRow, columns: TableColumn[]): boolean {
+  const evaluateCondition = (condition: any, row: TableRow): boolean => {
+    const value = String((row as any)[condition.columnId] ?? '').toLowerCase();
+    const filterValue = condition.value.toLowerCase();
+    
+    switch (condition.operator) {
+      case 'contains':
+        return value.includes(filterValue);
+      case 'does_not_contain':
+        return !value.includes(filterValue);
+      case 'is':
+        return value === filterValue;
+      case 'is_not':
+        return value !== filterValue;
+      case 'is_empty':
+        return value === '';
+      case 'is_not_empty':
+        return value !== '';
+      case 'starts_with':
+        return value.startsWith(filterValue);
+      case 'ends_with':
+        return value.endsWith(filterValue);
+      case 'equals':
+        return parseFloat(value) === parseFloat(filterValue);
+      case 'not_equals':
+        return parseFloat(value) !== parseFloat(filterValue);
+      case 'greater_than':
+        return parseFloat(value) > parseFloat(filterValue);
+      case 'less_than':
+        return parseFloat(value) < parseFloat(filterValue);
+      case 'greater_than_or_equal':
+        return parseFloat(value) >= parseFloat(filterValue);
+      case 'less_than_or_equal':
+        return parseFloat(value) <= parseFloat(filterValue);
+      default:
+        return true;
+    }
+  };
+
+  const evaluateGroup = (group: any, row: TableRow): boolean => {
+    const conditionResults = group.conditions.map((condition: any) => evaluateCondition(condition, row));
+    const groupResults = (group.groups || []).map((nestedGroup: any) => evaluateGroup(nestedGroup, row));
+    const allResults = [...conditionResults, ...groupResults];
+    
+    return group.type === 'and' ? allResults.every(Boolean) : allResults.some(Boolean);
+  };
+
+  const conditionResults = filters.conditions.map(condition => evaluateCondition(condition, row));
+  const groupResults = filters.groups.map(group => evaluateGroup(group, row));
+  const allResults = [...conditionResults, ...groupResults];
+  
+  if (allResults.length === 0) return true;
+  
+  return filters.type === 'and' ? allResults.every(Boolean) : allResults.some(Boolean);
+}
 
 export function useTableData(baseId: string, tableId?: string) {
   // Core table state
@@ -21,6 +79,12 @@ export function useTableData(baseId: string, tableId?: string) {
     columns: TableColumn[];
     rows: TableRow[];
   } | null>(null);
+  
+  // View state
+  const [viewFilters, setViewFilters] = useState<ViewFilters>({ type: 'and', conditions: [], groups: [] })
+  const [viewSorts, setViewSorts] = useState<SortConfig[]>([])
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([])
+  const [currentViewId, setCurrentViewId] = useState<string | null>(null)
   
   // Editing state
   const [editingCell, setEditingCell] = useState<{rowId: string, columnId: string} | null>(null)
@@ -47,7 +111,20 @@ export function useTableData(baseId: string, tableId?: string) {
   }, {
     enabled: !!tableId, // Only fetch when we have a tableId
     refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    staleTime: 0, // Always consider data stale to force fresh fetches
   });
+
+  // Fetch view data
+  const { data: viewData } = api.table.getTableView.useQuery({
+    baseId,
+    tableId: tableId || '',
+  }, {
+    enabled: !!tableId,
+  });
+
+  // Update view mutation
+  const updateViewMutation = api.table.updateView.useMutation();
 
   // Use extracted hooks
   const cellSelection = useCellSelection();
@@ -80,35 +157,55 @@ export function useTableData(baseId: string, tableId?: string) {
 
   // Reset optimistic data when tableId changes
   React.useEffect(() => {
+    // Immediately clear all optimistic data and pending operations
     setOptimisticData(null);
+    pendingUpdates.current.clear();
+    tempRowIds.current.clear();
+    tempRowData.current.clear();
   }, [tableId]);
 
   // Update optimistic state when real data changes
   React.useEffect(() => {
-    if (tableData && (!optimisticData || tableData.table?.id !== currentTableId)) {
+    if (tableData) {
+      // Always update optimistic data with fresh table data
       setOptimisticData({
         columns: tableData.columns,
         rows: tableData.rows,
       });
     }
-  }, [tableData, optimisticData, currentTableId]);
+  }, [tableData]);
+
+  // Sync view data when it changes
+  React.useEffect(() => {
+    if (viewData) {
+      setCurrentViewId(viewData.id);
+      setViewFilters(viewData.filters as ViewFilters || { type: 'and', conditions: [], groups: [] });
+      setViewSorts(viewData.sorts as SortConfig[] || []);
+      setHiddenColumns(viewData.hiddenColumns as string[] || []);
+    }
+  }, [viewData]);
+
+  // Filter columns based on hidden columns
+  const visibleColumns = useMemo(() => {
+    const columns = optimisticData?.columns ?? tableData?.columns ?? [];
+    return columns.filter(col => !hiddenColumns.includes(col.id));
+  }, [optimisticData?.columns, tableData?.columns, hiddenColumns]);
 
   // Create table columns (without JSX - just return column config)
-  const tableColumns = useMemo<ColumnDef<TableRow>[]>(() => {
-    const columns = optimisticData?.columns ?? tableData?.columns ?? [];
-    if (!columns.length) return [];
+  const tableColumns = useMemo<ColumnDef<TableRow, any>[]>(() => {
+    if (!visibleColumns.length) return [];
     
-    const cols: ColumnDef<TableRow>[] = columns.map((col) => ({
+    const cols: ColumnDef<TableRow, any>[] = visibleColumns.map((col) => ({
       id: col.id,
       header: col.name,
-      accessorKey: col.id,
+      accessorKey: col.id as keyof TableRow,
       size: 150,
       minSize: 100,
       maxSize: 300,
     }));
 
     return cols;
-  }, [optimisticData?.columns, tableData?.columns]);
+  }, [visibleColumns]);
 
   // Navigation functions
   const navigateCell = React.useCallback((direction: 'up' | 'down' | 'left' | 'right' | 'arrowup' | 'arrowdown' | 'arrowleft' | 'arrowright') => {
@@ -237,9 +334,89 @@ export function useTableData(baseId: string, tableId?: string) {
     );
   }, [cellSelection, operations, getCurrentCellValue, addToHistory]);
 
+  // View update functions
+  const updateViewFilters = React.useCallback((filters: ViewFilters) => {
+    setViewFilters(filters);
+    if (currentViewId) {
+      updateViewMutation.mutate({
+        baseId,
+        viewId: currentViewId,
+        filters,
+      });
+    }
+  }, [baseId, currentViewId, updateViewMutation]);
+
+  const updateViewSorts = React.useCallback((sorts: SortConfig[]) => {
+    setViewSorts(sorts);
+    if (currentViewId) {
+      updateViewMutation.mutate({
+        baseId,
+        viewId: currentViewId,
+        sorts,
+      });
+    }
+  }, [baseId, currentViewId, updateViewMutation]);
+
+  const updateHiddenColumns = React.useCallback((hidden: string[]) => {
+    setHiddenColumns(hidden);
+    if (currentViewId) {
+      updateViewMutation.mutate({
+        baseId,
+        viewId: currentViewId,
+        hiddenColumns: hidden,
+      });
+    }
+  }, [baseId, currentViewId, updateViewMutation]);
+
+  // Apply filters to rows
+  const filteredRows = useMemo(() => {
+    const rows = optimisticData?.rows ?? tableData?.rows ?? [];
+    const columns = optimisticData?.columns ?? tableData?.columns ?? [];
+    
+    if (!viewFilters.conditions.length && !viewFilters.groups.length) {
+      return rows;
+    }
+
+    return rows.filter(row => {
+      // Apply search term filter first
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = columns.some(col => {
+          const value = String((row as any)[col.id] ?? '').toLowerCase();
+          return value.includes(searchLower);
+        });
+        if (!matchesSearch) return false;
+      }
+
+      // Apply view filters
+      return evaluateFilters(viewFilters, row, columns);
+    });
+  }, [optimisticData?.rows, tableData?.rows, optimisticData?.columns, tableData?.columns, viewFilters, searchTerm]);
+
+  // Apply sorts to filtered rows
+  const sortedRows = useMemo(() => {
+    if (!viewSorts.length) return filteredRows;
+
+    return [...filteredRows].sort((a, b) => {
+      for (const sort of viewSorts) {
+        const aValue = String((a as any)[sort.columnId] ?? '');
+        const bValue = String((b as any)[sort.columnId] ?? '');
+        
+        let comparison = 0;
+        if (aValue < bValue) comparison = -1;
+        else if (aValue > bValue) comparison = 1;
+        
+        if (comparison !== 0) {
+          return sort.direction === 'desc' ? -comparison : comparison;
+        }
+      }
+      return 0;
+    });
+  }, [filteredRows, viewSorts]);
+
   // Create table instance
   const table = useReactTable({
-    data: optimisticData?.rows ?? tableData?.rows ?? [],
+    data: sortedRows as any[],
     columns: tableColumns,
     getRowId: (row) => row.id,
     getCoreRowModel: getCoreRowModel(),
@@ -289,9 +466,20 @@ export function useTableData(baseId: string, tableId?: string) {
     tableData,
     optimisticData,
     isLoading,
-    columns: optimisticData?.columns ?? tableData?.columns ?? [],
-    rows: optimisticData?.rows ?? tableData?.rows ?? [],
+    columns: visibleColumns,
+    rows: sortedRows,
+    allColumns: optimisticData?.columns ?? tableData?.columns ?? [],
+    allRows: optimisticData?.rows ?? tableData?.rows ?? [],
     tableInfo: tableData?.table ?? null,
+    // View state
+    viewFilters,
+    viewSorts,
+    hiddenColumns,
+    currentViewId,
+    // View update functions
+    updateViewFilters,
+    updateViewSorts,
+    updateHiddenColumns,
     // Search state
     searchTerm,
     setSearchTerm,

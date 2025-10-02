@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { bases, tables, columns, cells, rows } from "@/server/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { bases, tables, columns, cells, rows, views } from "@/server/db/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 export const tableRouter = createTRPCRouter({
   // Get all tables for a base
@@ -461,5 +461,148 @@ export const tableRouter = createTRPCRouter({
       }
 
       return newTable;
+    }),
+
+  // Rename table
+  renameTable: protectedProcedure
+    .input(z.object({
+      baseId: z.string(),
+      tableId: z.string(),
+      name: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify base ownership
+      const [base] = await ctx.db
+        .select()
+        .from(bases)
+        .where(and(eq(bases.id, input.baseId), eq(bases.userId, ctx.session.user.id)));
+
+      if (!base) throw new Error("Base not found");
+
+      // Update table name
+      const [updatedTable] = await ctx.db
+        .update(tables)
+        .set({ name: input.name })
+        .where(and(eq(tables.id, input.tableId), eq(tables.baseId, input.baseId)))
+        .returning();
+
+      return updatedTable;
+    }),
+
+  // Delete table
+  deleteTable: protectedProcedure
+    .input(z.object({
+      baseId: z.string(),
+      tableId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify base ownership
+      const [base] = await ctx.db
+        .select()
+        .from(bases)
+        .where(and(eq(bases.id, input.baseId), eq(bases.userId, ctx.session.user.id)));
+
+      if (!base) throw new Error("Base not found");
+
+      // Check if this is the last table in the base
+      const tableCount = await ctx.db
+        .select({ count: sql<number>`count(*)` })
+        .from(tables)
+        .where(eq(tables.baseId, input.baseId));
+
+      if (tableCount[0]?.count <= 1) {
+        throw new Error("Cannot delete the last table in a base");
+      }
+
+      // Delete in correct order to avoid foreign key constraints
+      // Delete cells first
+      await ctx.db.delete(cells).where(eq(cells.tableId, input.tableId));
+      // Delete rows
+      await ctx.db.delete(rows).where(eq(rows.tableId, input.tableId));
+      // Delete columns
+      await ctx.db.delete(columns).where(eq(columns.tableId, input.tableId));
+      // Finally delete the table
+      await ctx.db.delete(tables).where(eq(tables.id, input.tableId));
+
+      return { success: true };
+    }),
+
+  // Get or create default view for a table
+  getTableView: protectedProcedure
+    .input(z.object({
+      baseId: z.string(),
+      tableId: z.string(),
+      viewId: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      // Verify base ownership
+      const [base] = await ctx.db
+        .select()
+        .from(bases)
+        .where(and(eq(bases.id, input.baseId), eq(bases.userId, ctx.session.user.id)));
+
+      if (!base) throw new Error("Base not found");
+
+      // Get specific view or default view
+      let [view] = input.viewId 
+        ? await ctx.db
+            .select()
+            .from(views)
+            .where(eq(views.id, input.viewId))
+        : await ctx.db
+            .select()
+            .from(views)
+            .where(and(eq(views.tableId, input.tableId), eq(views.isDefault, true)));
+
+      // Create default view if none exists
+      if (!view) {
+        [view] = await ctx.db
+          .insert(views)
+          .values({
+            name: "Grid view",
+            tableId: input.tableId,
+            isDefault: true,
+            filters: { type: 'and', conditions: [], groups: [] },
+            sorts: [],
+            hiddenColumns: [],
+          })
+          .returning();
+      }
+
+      return view;
+    }),
+
+  // Update view configuration
+  updateView: protectedProcedure
+    .input(z.object({
+      baseId: z.string(),
+      viewId: z.string(),
+      name: z.string().optional(),
+      filters: z.any().optional(), // ViewFilters type
+      sorts: z.any().optional(), // SortConfig[] type
+      hiddenColumns: z.array(z.string()).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify base ownership
+      const [base] = await ctx.db
+        .select()
+        .from(bases)
+        .where(and(eq(bases.id, input.baseId), eq(bases.userId, ctx.session.user.id)));
+
+      if (!base) throw new Error("Base not found");
+
+      const updateData: any = {};
+      if (input.name !== undefined) updateData.name = input.name;
+      if (input.filters !== undefined) updateData.filters = input.filters;
+      if (input.sorts !== undefined) updateData.sorts = input.sorts;
+      if (input.hiddenColumns !== undefined) updateData.hiddenColumns = input.hiddenColumns;
+
+      const [updatedView] = await ctx.db
+        .update(views)
+        .set(updateData)
+        .where(eq(views.id, input.viewId))
+        .returning();
+
+      return updatedView;
     }),
 });

@@ -273,3 +273,38 @@ export const rowRelations = relations(rows, ({ one, many }) => ({
   table: one(tables, { fields: [rows.tableId], references: [tables.id] }),
   cells: many(cells),
 }));
+
+// Views schema - Store different views of tables with filters, sorts, etc.
+export const views = createTable(
+  "view",
+  (d) => ({
+    id: d
+      .varchar({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    name: d.varchar({ length: 255 }).notNull().default("Grid view"),
+    tableId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => tables.id),
+    isDefault: d.boolean().notNull().default(false),
+    // JSON fields for storing view configuration
+    filters: d.json(), // Store filter conditions
+    sorts: d.json(), // Store sort configuration
+    hiddenColumns: d.json(), // Store hidden column IDs
+    createdAt: d
+      .timestamp({ withTimezone: true })
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: d.timestamp({ withTimezone: true }).$onUpdate(() => new Date()),
+  }),
+  (t) => [
+    index("view_table_id_idx").on(t.tableId),
+    index("view_default_idx").on(t.tableId, t.isDefault),
+  ],
+);
+
+export const viewRelations = relations(views, ({ one }) => ({
+  table: one(tables, { fields: [views.tableId], references: [tables.id] }),
+}));
