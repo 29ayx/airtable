@@ -42,7 +42,7 @@ export const DataTable: React.FC<DataTableProps> = ({
 
   return (
     <div className="flex-1 overflow-auto bg-[#f6f8fc]">
-      <table className="w-full border-collapse bg-white">
+      <table className="border-collapse bg-white">
         <thead>
           {table.getHeaderGroups().map((headerGroup: any) => (
             <tr key={headerGroup.id}>
@@ -72,9 +72,9 @@ export const DataTable: React.FC<DataTableProps> = ({
                 </th>
               ))}
               {/* Add Column Template */}
-              <th className="border border-gray-200 px-2 py-1">
+              <th className="border border-gray-200 px-2 py-1 w-10">
                 <button
-                  className="flex items-center justify-center w-full h-5"
+                  className="flex items-center justify-center h-5 w-6"
                   onClick={addColumn}
                 >
                   <Plus className="h-3 w-3" />
@@ -103,23 +103,12 @@ export const DataTable: React.FC<DataTableProps> = ({
                   )}
                 </td>
               ))}
-              {/* Delete row button */}
-              <td className="border border-gray-200 px-2 py-1 h-7">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-4 w-4 opacity-0 group-hover:opacity-100"
-                  onClick={() => deleteRow(row.original.id)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </td>
             </tr>
           ))}
           {/* Add Row Template - Single Row Spanning All Columns */}
           <tr className="group">
             <td 
-              colSpan={(table.getHeaderGroups()[0]?.headers.length || 0) + 1} 
+              colSpan={(table.getHeaderGroups()[0]?.headers.length || 0)} 
               className="border border-gray-200 px-2 py-1 h-7"
             >
               <button
