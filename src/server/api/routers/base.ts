@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { bases, tables, columns, cells, rows } from "@/server/db/schema";
+import { bases, tables, columns, cells, rows, views } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 
 export const baseRouter = createTRPCRouter({
@@ -114,13 +114,15 @@ export const baseRouter = createTRPCRouter({
 
       // Delete in correct order to avoid foreign key constraints
       for (const table of baseTables) {
-        // Delete cells first
+        // Delete views first (they reference tables)
+        await ctx.db.delete(views).where(eq(views.tableId, table.id));
+        // Delete cells
         await ctx.db.delete(cells).where(eq(cells.tableId, table.id));
         // Delete rows
         await ctx.db.delete(rows).where(eq(rows.tableId, table.id));
-        // Then delete columns
+        // Delete columns
         await ctx.db.delete(columns).where(eq(columns.tableId, table.id));
-        // Then delete the table
+        // Finally delete the table
         await ctx.db.delete(tables).where(eq(tables.id, table.id));
       }
 

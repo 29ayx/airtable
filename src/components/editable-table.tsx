@@ -139,7 +139,11 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
   return (
     <div className="flex flex-1 flex-col bg-white">
       {/* Main Header */}
-      <TableHeader baseName={baseName} baseId={baseId} />
+      <TableHeader 
+        baseName={baseName} 
+        baseId={baseId} 
+        isAddingTable={createTableMutation.isPending}
+      />
       
       {/* Secondary Header with Table Tabs */}
       <TableTabsHeader 
@@ -162,6 +166,15 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
           onFiltersChange={updateViewFilters}
           onSortsChange={updateViewSorts}
           onHiddenColumnsChange={updateHiddenColumns}
+          baseId={baseId}
+          tableId={activeTableId || undefined}
+          onDataChange={async () => {
+            // Refetch table data when demo data is generated
+            if (activeTableId) {
+              await utils.table.getTableData.invalidate({ baseId, tableId: activeTableId });
+              await utils.table.getTableData.refetch({ baseId, tableId: activeTableId });
+            }
+          }}
         />
       
       <div className="flex flex-1 overflow-hidden">

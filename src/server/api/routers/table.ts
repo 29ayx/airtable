@@ -605,4 +605,152 @@ export const tableRouter = createTRPCRouter({
 
       return updatedView;
     }),
+
+  // Add bulk demo data
+  addBulkDemoData: protectedProcedure
+    .input(z.object({
+      baseId: z.string(),
+      tableId: z.string(),
+      count: z.number().min(1).max(100000).default(100000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify base ownership
+      const [base] = await ctx.db
+        .select()
+        .from(bases)
+        .where(and(eq(bases.id, input.baseId), eq(bases.userId, ctx.session.user.id)));
+
+      if (!base) throw new Error("Base not found");
+
+      // Get table
+      const [table] = await ctx.db
+        .select()
+        .from(tables)
+        .where(and(eq(tables.id, input.tableId), eq(tables.baseId, input.baseId)));
+
+      if (!table) throw new Error("Table not found");
+
+      // Get all columns
+      const tableColumns = await ctx.db
+        .select()
+        .from(columns)
+        .where(eq(columns.tableId, table.id))
+        .orderBy(columns.order);
+
+      if (tableColumns.length === 0) {
+        throw new Error("No columns found in table");
+      }
+
+      // Get max order for new row positioning
+      const [maxOrder] = await ctx.db
+        .select({ max: rows.order })
+        .from(rows)
+        .where(eq(rows.tableId, table.id))
+        .orderBy(desc(rows.order))
+        .limit(1);
+
+      const startOrder = (maxOrder?.max ?? 0) + 1;
+
+      // Create rows in batches to avoid memory issues
+      const batchSize = 1000;
+      const totalBatches = Math.ceil(input.count / batchSize);
+      
+      for (let batch = 0; batch < totalBatches; batch++) {
+        const batchStart = batch * batchSize;
+        const batchEnd = Math.min(batchStart + batchSize, input.count);
+        const batchCount = batchEnd - batchStart;
+
+        // Create batch of rows
+        const rowsToInsert = Array.from({ length: batchCount }, (_, i) => ({
+          tableId: table.id,
+          order: startOrder + batchStart + i,
+        }));
+
+        const newRows = await ctx.db
+          .insert(rows)
+          .values(rowsToInsert)
+          .returning();
+
+        // Create cells for each row in this batch with fake data
+        const cellsToInsert = [];
+        for (const row of newRows) {
+          for (const column of tableColumns) {
+            // Generate fake data based on column name and type
+            let fakeValue = "";
+            const columnName = column.name.toLowerCase();
+            const columnType = column.type.toLowerCase();
+
+            // Generate based on column name patterns
+            if (columnName.includes('name') || columnName.includes('title')) {
+              fakeValue = `${Math.random().toString(36).substring(2, 8)} Person`;
+            } else if (columnName.includes('email')) {
+              fakeValue = `user${Math.floor(Math.random() * 10000)}@example.com`;
+            } else if (columnName.includes('phone')) {
+              fakeValue = `+1${Math.floor(Math.random() * 9000000000) + 1000000000}`;
+            } else if (columnName.includes('address')) {
+              fakeValue = `${Math.floor(Math.random() * 9999) + 1} Main St`;
+            } else if (columnName.includes('city')) {
+              const cities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia'];
+              fakeValue = cities[Math.floor(Math.random() * cities.length)] ?? 'New York';
+            } else if (columnName.includes('country')) {
+              const countries = ['USA', 'Canada', 'UK', 'Germany', 'France', 'Japan'];
+              fakeValue = countries[Math.floor(Math.random() * countries.length)] ?? 'USA';
+            } else if (columnName.includes('company')) {
+              fakeValue = `Company ${Math.floor(Math.random() * 1000)}`;
+            } else if (columnName.includes('job') || columnName.includes('position')) {
+              const jobs = ['Engineer', 'Manager', 'Designer', 'Analyst', 'Developer', 'Consultant'];
+              fakeValue = jobs[Math.floor(Math.random() * jobs.length)] ?? 'Engineer';
+            } else if (columnName.includes('age')) {
+              fakeValue = (Math.floor(Math.random() * 62) + 18).toString();
+            } else if (columnName.includes('price') || columnName.includes('cost') || columnName.includes('amount')) {
+              fakeValue = (Math.random() * 1000).toFixed(2);
+            } else if (columnName.includes('date')) {
+              const date = new Date(Date.now() - Math.floor(Math.random() * 365 * 24 * 60 * 60 * 1000));
+              fakeValue = date.toISOString().split('T')[0] ?? '2024-01-01';
+            } else {
+              // Generate based on column type
+              switch (columnType) {
+                case 'number':
+                  fakeValue = Math.floor(Math.random() * 1000).toString();
+                  break;
+                case 'email':
+                  fakeValue = `user${Math.floor(Math.random() * 10000)}@example.com`;
+                  break;
+                case 'phone':
+                  fakeValue = `+1${Math.floor(Math.random() * 9000000000) + 1000000000}`;
+                  break;
+                case 'date':
+                  const date = new Date(Date.now() - Math.floor(Math.random() * 365 * 24 * 60 * 60 * 1000));
+                  fakeValue = date.toISOString().split('T')[0] ?? '2024-01-01';
+                  break;
+                case 'url':
+                  fakeValue = `https://example${Math.floor(Math.random() * 100)}.com`;
+                  break;
+                default:
+                  // Random text data
+                  const textOptions = [
+                    `Sample Text ${Math.floor(Math.random() * 1000)}`,
+                    `Data Entry ${Math.floor(Math.random() * 1000)}`,
+                    `Test Value ${Math.floor(Math.random() * 1000)}`,
+                  ];
+                  fakeValue = textOptions[Math.floor(Math.random() * textOptions.length)] ?? 'Sample Text';
+              }
+            }
+
+            cellsToInsert.push({
+              tableId: table.id,
+              columnId: column.id,
+              rowId: row.id,
+              value: fakeValue,
+            });
+          }
+        }
+
+        if (cellsToInsert.length > 0) {
+          await ctx.db.insert(cells).values(cellsToInsert);
+        }
+      }
+
+      return { success: true, rowsCreated: input.count };
+    }),
 });

@@ -7,15 +7,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ChevronDown, Grid3x3, Edit2 } from "lucide-react"
+import { ChevronDown, Grid3x3, Edit2, Loader2 } from "lucide-react"
 import { RiSidebarUnfoldLine } from "react-icons/ri"
 import { api } from "@/trpc/react"
 interface TableHeaderProps {
   baseName: string
   baseId: string
+  isAddingTable?: boolean
 }
 
-export const TableHeader: React.FC<TableHeaderProps> = ({ baseName, baseId }) => {
+export const TableHeader: React.FC<TableHeaderProps> = ({ baseName, baseId, isAddingTable = false }) => {
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
   const [newBaseName, setNewBaseName] = useState("");
 
@@ -71,6 +72,14 @@ export const TableHeader: React.FC<TableHeaderProps> = ({ baseName, baseId }) =>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Adding Table Loader */}
+        {isAddingTable && (
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Adding table...</span>
+          </div>
+        )}
       </div>
 
       {/* Center Navigation */}

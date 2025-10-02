@@ -13,13 +13,15 @@ import {
   MoreVertical, 
   Share2, 
   Search,
-  X
+  X,
+  Database
 } from "lucide-react"
 import type { ViewFilters, SortConfig } from "@/types/view"
 import type { TableColumn } from "@/types/table"
 import { FilterDropdown } from "./filter-dropdown"
 import { ColumnVisibilityDropdown } from "./column-visibility-dropdown"
 import { SortDialog } from "./sort-dialog"
+import { api } from "@/trpc/react"
 
 interface TableToolbarProps {
   searchTerm?: string;
@@ -31,6 +33,9 @@ interface TableToolbarProps {
   onFiltersChange?: (filters: ViewFilters) => void;
   onSortsChange?: (sorts: SortConfig[]) => void;
   onHiddenColumnsChange?: (hiddenColumns: string[]) => void;
+  baseId?: string;
+  tableId?: string;
+  onDataChange?: () => void;
 }
 
 export const TableToolbar: React.FC<TableToolbarProps> = ({ 
@@ -42,11 +47,18 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
   hiddenColumns = [],
   onFiltersChange,
   onSortsChange,
-  onHiddenColumnsChange
+  onHiddenColumnsChange,
+  baseId,
+  tableId,
+  onDataChange
 }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState(searchTerm);
   const [isSortDialogOpen, setIsSortDialogOpen] = useState(false);
+  const [isGeneratingData, setIsGeneratingData] = useState(false);
+
+  // API mutations
+  const addBulkDemoDataMutation = api.table.addBulkDemoData.useMutation();
 
   // Debounce search input to avoid too many re-renders
   useEffect(() => {
@@ -65,6 +77,35 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
   // Count active filters
   const activeFiltersCount = (filters?.conditions?.length || 0) + (filters?.groups?.length || 0);
 
+  // Handle demo data generation
+  const handleGenerateDemoData = async () => {
+    if (!baseId || !tableId || columns.length === 0) {
+      alert('Missing required data to generate demo data');
+      return;
+    }
+
+    setIsGeneratingData(true);
+    try {
+      // First create 100k empty rows
+      const result = await addBulkDemoDataMutation.mutateAsync({
+        baseId,
+        tableId,
+        count: 100000,
+      });
+
+      if (result.success) {
+        // Refresh the data to get the new rows
+        onDataChange?.();
+        alert(`Successfully generated ${result.rowsCreated} demo rows!`);
+      }
+    } catch (error) {
+      console.error('Error generating demo data:', error);
+      alert('Failed to generate demo data. Please try again.');
+    } finally {
+      setIsGeneratingData(false);
+    }
+  };
+
   return (
     <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2">
       <div className="flex items-center gap-2">
@@ -72,6 +113,20 @@ export const TableToolbar: React.FC<TableToolbarProps> = ({
           <Grid3x3 className="h-4 w-4" />
           Grid view
           <ChevronDown className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Center section with demo data button */}
+      <div className="flex items-center">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="h-8 gap-1 text-sm font-medium"
+          onClick={handleGenerateDemoData}
+          disabled={true}
+        >
+          <Database className="h-4 w-4" />
+          {isGeneratingData ? 'Generating...' : 'Add 100k Demo Data'}
         </Button>
       </div>
 
