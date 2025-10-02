@@ -7,9 +7,9 @@ export function debounce<T extends (...args: any[]) => void>(func: T, wait: numb
   }
 }
 
-// Cell key utilities
-export const createCellKey = (rowId: string, columnId: string) => `${rowId}-${columnId}`
-export const parseCellKey = (cellKey: string) => cellKey.split('-')
+// Cell key utilities - using a unique separator to avoid UUID dash conflicts
+export const createCellKey = (rowId: string, columnId: string) => `${rowId}|${columnId}`
+export const parseCellKey = (cellKey: string) => cellKey.split('|')
 
 // Temp ID generators
 export const createTempRowId = () => `temp-row-${Date.now()}`

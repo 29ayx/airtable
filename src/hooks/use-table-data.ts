@@ -25,6 +25,15 @@ export function useTableData(baseId: string) {
   // Editing state
   const [editingCell, setEditingCell] = useState<{rowId: string, columnId: string} | null>(null)
   const [focusedCell, setFocusedCell] = useState<{rowId: string, columnId: string} | null>(null)
+  const [selectedColumn, setSelectedColumn] = useState<string | null>(null)
+  
+  // History tracking for undo/redo
+  const [history, setHistory] = useState<Array<{
+    type: 'cell_update' | 'cell_delete';
+    data: Array<{rowId: string, columnId: string, oldValue: string, newValue: string}>;
+    timestamp: number;
+  }>>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
   
   // Refs for tracking temp data and pending operations
   const pendingUpdates = useRef<Map<string, CellUpdate>>(new Map())
@@ -124,9 +133,82 @@ export function useTableData(baseId: string) {
         setFocusedCell({ rowId: newRow.id, columnId: newColumn.id });
         // Clear selection when navigating
         cellSelection.clearSelection();
+        // Clear column selection when navigating
+        setSelectedColumn(null);
       }
     }
   }, [focusedCell, optimisticData?.rows, optimisticData?.columns, tableData?.rows, tableData?.columns]);
+
+  // History management functions
+  const addToHistory = React.useCallback((
+    type: 'cell_update' | 'cell_delete',
+    changes: Array<{rowId: string, columnId: string, oldValue: string, newValue: string}>
+  ) => {
+    setHistory(prev => {
+      // Remove any history after current index (when undoing then making new changes)
+      const newHistory = prev.slice(0, historyIndex + 1);
+      // Add new history entry
+      newHistory.push({
+        type,
+        data: changes,
+        timestamp: Date.now()
+      });
+      // Keep only last 50 history entries
+      return newHistory.slice(-50);
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, 49));
+  }, [historyIndex]);
+
+  const undo = React.useCallback(() => {
+    if (historyIndex < 0 || historyIndex >= history.length) return;
+    
+    const historyEntry = history[historyIndex];
+    if (!historyEntry) return;
+
+    // Apply reverse changes
+    historyEntry.data.forEach(change => {
+      operations.updateData(change.rowId, change.columnId, change.oldValue);
+    });
+
+    setHistoryIndex(prev => prev - 1);
+  }, [historyIndex, history, operations]);
+
+  const redo = React.useCallback(() => {
+    if (historyIndex >= history.length - 1) return;
+    
+    const nextIndex = historyIndex + 1;
+    const historyEntry = history[nextIndex];
+    if (!historyEntry) return;
+
+    // Apply forward changes
+    historyEntry.data.forEach(change => {
+      operations.updateData(change.rowId, change.columnId, change.newValue);
+    });
+
+    setHistoryIndex(nextIndex);
+  }, [historyIndex, history, operations]);
+
+  // Function to get current cell value
+  const getCurrentCellValue = React.useCallback((rowId: string, columnId: string): string => {
+    const rows = optimisticData?.rows ?? tableData?.rows ?? [];
+    const row = rows.find(r => r.id === rowId);
+    return row ? String((row as any)[columnId] ?? '') : '';
+  }, [optimisticData?.rows, tableData?.rows]);
+
+  // Wrapper function for deleteSelectedCells
+  const deleteSelectedCellsWrapper = React.useCallback(() => {
+    console.log('🔥 deleteSelectedCellsWrapper called');
+    console.log('Selected cells:', cellSelection.selectedCells);
+    cellSelection.deleteSelectedCells(
+      (rowId: string, columnId: string, value: string) => {
+        console.log('🔄 Updating cell in deleteSelectedCells:', { rowId, columnId, value });
+        // updateData now handles immediate updates for delete operations
+        operations.updateData(rowId, columnId, value, undefined);
+      },
+      getCurrentCellValue,
+      addToHistory
+    );
+  }, [cellSelection, operations, getCurrentCellValue, addToHistory]);
 
   // Create table instance
   const table = useReactTable({
@@ -148,7 +230,7 @@ export function useTableData(baseId: string) {
       rowSelection,
     },
     meta: {
-      updateData: operations.updateData,
+      updateData: (rowId: string, columnId: string, value: string) => operations.updateData(rowId, columnId, value, addToHistory),
       addRow: operations.addRow,
       deleteRow: operations.deleteRow,
       addColumn: operations.addColumn,
@@ -159,13 +241,18 @@ export function useTableData(baseId: string) {
       focusedCell,
       setFocusedCell,
       navigateCell,
+      selectedColumn,
+      setSelectedColumn,
+      addToHistory,
+      undo,
+      redo,
       selectedCells: cellSelection.selectedCells,
       startSelection: cellSelection.startSelection,
       updateSelection: (endRowId: string, endColumnId: string) => 
         cellSelection.updateSelection(endRowId, endColumnId, optimisticData?.rows ?? [], optimisticData?.columns ?? []),
       endSelection: cellSelection.endSelection,
       clearSelection: cellSelection.clearSelection,
-      deleteSelectedCells: () => cellSelection.deleteSelectedCells(operations.updateData),
+      deleteSelectedCells: deleteSelectedCellsWrapper,
       isSelecting: cellSelection.isSelecting,
     },
   });
@@ -188,6 +275,9 @@ export function useTableData(baseId: string) {
     focusedCell,
     setFocusedCell,
     navigateCell,
+    // Column selection state
+    selectedColumn,
+    setSelectedColumn,
     // Selection state
     selectedCells: cellSelection.selectedCells,
     startSelection: cellSelection.startSelection,
@@ -195,8 +285,13 @@ export function useTableData(baseId: string) {
       cellSelection.updateSelection(endRowId, endColumnId, optimisticData?.rows ?? [], optimisticData?.columns ?? []),
     endSelection: cellSelection.endSelection,
     clearSelection: cellSelection.clearSelection,
-    deleteSelectedCells: () => cellSelection.deleteSelectedCells(operations.updateData),
+    deleteSelectedCells: deleteSelectedCellsWrapper,
     isSelecting: cellSelection.isSelecting,
+    // History functions
+    undo,
+    redo,
+    canUndo: historyIndex >= 0,
+    canRedo: historyIndex < history.length - 1,
     // Utility functions
     isTemporaryRow: (rowId: string) => tempRowIds.current.has(rowId),
     isPendingUpdate: (rowId: string, columnId: string) => pendingUpdates.current.has(`${rowId}-${columnId}`),

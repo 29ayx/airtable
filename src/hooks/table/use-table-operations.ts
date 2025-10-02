@@ -23,6 +23,27 @@ export function useTableOperations(config: TableOperationsConfig) {
     mutations
   } = config;
 
+  // Immediate update function for delete operations
+  const immediateUpdateCell = useCallback((rowId: string, columnId: string, value: string) => {
+    const key = `${rowId}-${columnId}`;
+    console.log('⚡ immediateUpdateCell called:', { rowId, columnId, value, key });
+    
+    if (!rowId || !columnId) {
+      console.error('❌ Invalid parameters for updateCell:', { rowId, columnId, value });
+      return;
+    }
+    
+    pendingUpdates.current.set(key, { rowId, columnId, value: value ?? "" });
+    console.log('📡 Sending immediate updateCell mutation:', { baseId, rowId, columnId, value });
+    
+    mutations.updateCellMutation.mutate({
+      baseId,
+      rowId,
+      columnId,
+      value: value ?? "",
+    });
+  }, [baseId, mutations.updateCellMutation, pendingUpdates]);
+
   // Debounced update function
   const debouncedUpdateCell = useMemo(() => 
     debounce((rowId: string, columnId: string, value: string) => {
@@ -31,6 +52,11 @@ export function useTableOperations(config: TableOperationsConfig) {
       
       if (pendingUpdates.current.has(key)) {
         console.log('⏸️ Skipping - already pending:', key);
+        return;
+      }
+      
+      if (!rowId || !columnId) {
+        console.error('❌ Invalid parameters for updateCell:', { rowId, columnId, value });
         return;
       }
       
@@ -47,7 +73,7 @@ export function useTableOperations(config: TableOperationsConfig) {
   );
 
   // Core table operations
-  const updateData = useCallback((rowId: string, columnId: string, value: string) => {
+  const updateData = useCallback((rowId: string, columnId: string, value: string, addToHistory?: (type: 'cell_update', changes: Array<{rowId: string, columnId: string, oldValue: string, newValue: string}>) => void) => {
     console.log('🔄 updateData called:', { rowId, columnId, value, isTemp: tempRowIds.current.has(rowId) });
     
     // Handle temporary rows
@@ -76,6 +102,15 @@ export function useTableOperations(config: TableOperationsConfig) {
     }
 
     console.log('💾 Updating real row - optimistic + server call');
+    
+    // Get old value for history tracking
+    const oldValue = optimisticData?.rows.find(row => row.id === rowId)?.[columnId] ?? '';
+    
+    // Add to history if function provided and values are different
+    if (addToHistory && String(oldValue) !== String(value)) {
+      addToHistory('cell_update', [{ rowId, columnId, oldValue: String(oldValue), newValue: String(value) }]);
+    }
+    
     setOptimisticData(prev => {
       if (!prev) return prev;
       return {
@@ -86,8 +121,14 @@ export function useTableOperations(config: TableOperationsConfig) {
       };
     });
     
-    debouncedUpdateCell(rowId, columnId, value);
-  }, [debouncedUpdateCell, tempRowIds, tempRowData, setOptimisticData]);
+    // Use immediate update for delete operations (empty values)
+    if (value === '') {
+      console.log('🗑️ Delete operation detected - using immediate update');
+      immediateUpdateCell(rowId, columnId, value);
+    } else {
+      debouncedUpdateCell(rowId, columnId, value);
+    }
+  }, [debouncedUpdateCell, immediateUpdateCell, tempRowIds, tempRowData, setOptimisticData, optimisticData]);
 
   const addRow = useCallback(() => {
     const tempRowId = createTempRowId();
@@ -186,6 +227,7 @@ export function useTableOperations(config: TableOperationsConfig) {
 
   return {
     updateData,
+    immediateUpdateCell,
     addRow,
     deleteRow,
     addColumn,

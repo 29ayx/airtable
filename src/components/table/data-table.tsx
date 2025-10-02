@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { Plus } from "lucide-react"
+import { useHotkeys } from 'react-hotkeys-hook'
 import { ColumnHeader } from "./column-header"
 import { EditableCell } from "./editable-cell"
 
@@ -18,86 +19,149 @@ export const DataTable: React.FC<DataTableProps> = ({
   addColumn,
   searchTerm = ''
 }) => {
-  // Handle global keyboard and mouse events
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't handle keyboard events if user is typing in an input field
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') {
-        return;
-      }
-      
-      const navigateCell = table.options.meta?.navigateCell;
-      const setFocusedCell = table.options.meta?.setFocusedCell;
-      const focusedCell = table.options.meta?.focusedCell;
-      
-      // Handle arrow key navigation
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        e.preventDefault();
-        
-        // If no cell is focused, focus the first cell
-        if (!focusedCell && setFocusedCell) {
-          const rows = table.getRowModel().rows;
-          const columns = table.getVisibleLeafColumns();
-          if (rows.length > 0 && columns.length > 0) {
-            const firstRow = rows[0];
-            const firstColumn = columns[0];
-            if (firstRow && firstColumn) {
-              setFocusedCell({ 
-                rowId: firstRow.original?.id ?? firstRow.id, 
-                columnId: firstColumn.id 
-              });
-            }
-          }
-          return;
-        }
-        
-        if (navigateCell) {
-          switch (e.key) {
-            case 'ArrowUp':
-              navigateCell('up');
-              break;
-            case 'ArrowDown':
-              navigateCell('down');
-              break;
-            case 'ArrowLeft':
-              navigateCell('left');
-              break;
-            case 'ArrowRight':
-              navigateCell('right');
-              break;
-          }
-        }
-        return;
-      }
-      
-      // Handle Enter key to start editing focused cell
-      if (e.key === 'Enter' && focusedCell) {
-        const setEditingCell = table.options.meta?.setEditingCell;
-        const clearSelection = table.options.meta?.clearSelection;
-        if (setEditingCell) {
-          e.preventDefault();
-          setEditingCell(focusedCell);
-          clearSelection?.(); // Clear selection when starting to edit
-        }
-        return;
-      }
-      
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        const deleteSelectedCells = table.options.meta?.deleteSelectedCells;
-        if (deleteSelectedCells) {
-          e.preventDefault();
-          deleteSelectedCells();
-        }
-      }
-      if (e.key === 'Escape') {
-        const clearSelection = table.options.meta?.clearSelection;
-        if (clearSelection) {
-          clearSelection();
-        }
-      }
-    };
+  // Get table meta functions
+  const deleteSelectedCells = table.options.meta?.deleteSelectedCells;
+  const selectedCells = table.options.meta?.selectedCells;
+  const focusedCell = table.options.meta?.focusedCell;
+  const updateData = table.options.meta?.updateData;
+  const navigateCell = table.options.meta?.navigateCell;
+  const setFocusedCell = table.options.meta?.setFocusedCell;
+  const setEditingCell = table.options.meta?.setEditingCell;
+  const clearSelection = table.options.meta?.clearSelection;
+  const setSelectedColumn = table.options.meta?.setSelectedColumn;
+  const undo = table.options.meta?.undo;
+  const redo = table.options.meta?.redo;
 
+  // Handle delete key with react-hotkeys-hook
+  useHotkeys('delete, backspace', (e) => {
+    e.preventDefault();
+    console.log('🗑️ Delete key pressed (hotkeys)');
+    
+    console.log('Delete debug:', { 
+      deleteSelectedCells: !!deleteSelectedCells, 
+      selectedCells: selectedCells?.size || 0,
+      focusedCell: focusedCell,
+      updateData: !!updateData
+    });
+    
+    // If there are selected cells, delete them
+    if (selectedCells && selectedCells.size > 0 && deleteSelectedCells) {
+      console.log('🗑️ Deleting selected cells:', selectedCells.size);
+      deleteSelectedCells();
+    }
+    // If no selected cells but there's a focused cell, clear that cell
+    else if (focusedCell && updateData) {
+      console.log('🗑️ Clearing focused cell:', focusedCell);
+      updateData(focusedCell.rowId, focusedCell.columnId, '');
+    }
+    else {
+      console.log('❌ No cells to delete - trying to focus first cell');
+      // If nothing is focused, try to focus the first cell
+      if (!focusedCell && setFocusedCell) {
+        const rows = table.getRowModel().rows;
+        const columns = table.getVisibleLeafColumns();
+        if (rows.length > 0 && columns.length > 0) {
+          const firstRow = rows[0];
+          const firstColumn = columns[0];
+          if (firstRow && firstColumn) {
+            const firstCellId = { 
+              rowId: firstRow.original?.id ?? firstRow.id, 
+              columnId: firstColumn.id 
+            };
+            console.log('🎯 Focusing first cell:', firstCellId);
+            setFocusedCell(firstCellId);
+          }
+        }
+      }
+    }
+  }, {
+    enableOnFormTags: false, // Don't trigger when typing in inputs
+    preventDefault: true
+  });
+
+  // Handle arrow keys
+  useHotkeys('up, down, left, right', (e, handler) => {
+    e.preventDefault();
+    
+    // If no cell is focused, focus the first cell
+    if (!focusedCell && setFocusedCell) {
+      const rows = table.getRowModel().rows;
+      const columns = table.getVisibleLeafColumns();
+      if (rows.length > 0 && columns.length > 0) {
+        const firstRow = rows[0];
+        const firstColumn = columns[0];
+        if (firstRow && firstColumn) {
+          setFocusedCell({ 
+            rowId: firstRow.original?.id ?? firstRow.id, 
+            columnId: firstColumn.id 
+          });
+        }
+      }
+      return;
+    }
+    
+    if (navigateCell) {
+      switch (handler.keys?.[0]) {
+        case 'up':
+          navigateCell('up');
+          break;
+        case 'down':
+          navigateCell('down');
+          break;
+        case 'left':
+          navigateCell('left');
+          break;
+        case 'right':
+          navigateCell('right');
+          break;
+      }
+    }
+  }, {
+    enableOnFormTags: false,
+    preventDefault: true
+  });
+
+  // Handle Enter key
+  useHotkeys('enter', (e) => {
+    if (focusedCell && setEditingCell) {
+      e.preventDefault();
+      setEditingCell(focusedCell);
+      clearSelection?.();
+      setSelectedColumn?.(null);
+    }
+  }, {
+    enableOnFormTags: false,
+    preventDefault: true
+  });
+
+  // Handle undo/redo
+  useHotkeys('ctrl+z, cmd+z', (e) => {
+    e.preventDefault();
+    undo?.();
+  }, {
+    enableOnFormTags: false,
+    preventDefault: true
+  });
+
+  useHotkeys('ctrl+shift+z, cmd+shift+z, ctrl+y, cmd+y', (e) => {
+    e.preventDefault();
+    redo?.();
+  }, {
+    enableOnFormTags: false,
+    preventDefault: true
+  });
+
+  // Handle escape
+  useHotkeys('escape', (e) => {
+    e.preventDefault();
+    clearSelection?.();
+  }, {
+    enableOnFormTags: false,
+    preventDefault: true
+  });
+
+  // Handle mouse events
+  React.useEffect(() => {
     const handleMouseUp = () => {
       const endSelection = table.options.meta?.endSelection;
       if (endSelection) {
@@ -105,11 +169,9 @@ export const DataTable: React.FC<DataTableProps> = ({
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('mouseup', handleMouseUp);
     
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [table]);
@@ -135,7 +197,7 @@ export const DataTable: React.FC<DataTableProps> = ({
               {headerGroup.headers.map((header: any) => (
                 <th
                   key={header.id}
-                  className="border border-gray-200 px-2 py-1 relative"
+                  className="border border-gray-200 relative p-0"
                   style={{ width: header.getSize() }}
                 >
                    {header.isPlaceholder ? null : (
@@ -201,7 +263,7 @@ export const DataTable: React.FC<DataTableProps> = ({
               {row.getVisibleCells().map((cell: any) => (
                 <td
                   key={cell.id}
-                  className="border border-gray-200 px-1 py-1 h-8 text-xs"
+                  className="border border-gray-200 h-8 text-xs p-0"
                 >
                   <EditableCell
                     value={cell.getValue()}

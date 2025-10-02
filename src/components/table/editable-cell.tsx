@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import type { Row } from '@tanstack/react-table'
+import { createCellKey } from '@/hooks/table/utils'
 
 interface EditableCellProps {
   value: any
@@ -25,9 +26,12 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
   const setEditingCell = table.options.meta?.setEditingCell
   const focusedCell = table.options.meta?.focusedCell
   const setFocusedCell = table.options.meta?.setFocusedCell
+  const selectedColumn = table.options.meta?.selectedColumn
+  const setSelectedColumn = table.options.meta?.setSelectedColumn
   const rowId = row.original?.id ?? row.id;
   const isEditing = editingCell?.rowId === rowId && editingCell?.columnId === column.id
   const isFocused = focusedCell?.rowId === rowId && focusedCell?.columnId === column.id
+  const isColumnSelected = selectedColumn === column.id
   
   // Get selection state from table meta
   const selectedCells = table.options.meta?.selectedCells ?? new Set()
@@ -37,7 +41,7 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
   const clearSelection = table.options.meta?.clearSelection
   const isSelecting = table.options.meta?.isSelecting
   
-  const cellKey = `${rowId}-${column.id}`
+  const cellKey = createCellKey(rowId, column.id)
   const isSelected = selectedCells.has(cellKey)
 
   const handleSave = () => {
@@ -54,12 +58,14 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
     setEditingCell({ rowId, columnId: column.id })
     setFocusedCell?.({ rowId, columnId: column.id })
     clearSelection?.() // Clear selection when starting to edit
+    setSelectedColumn?.(null) // Clear column selection when starting to edit
   }
 
   const handleCellClick = () => {
     const rowId = row.original?.id ?? row.id;
     setFocusedCell?.({ rowId, columnId: column.id })
     clearSelection?.() // Clear selection when focusing a cell
+    setSelectedColumn?.(null) // Clear column selection when focusing a cell
   }
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -178,9 +184,10 @@ export const EditableCell: React.FC<EditableCellProps> = ({ value, row, column, 
 
   return (
     <div
-      className={`w-full h-full text-sm cursor-pointer p-0 m-0 ${
+      className={`w-full h-full text-sm cursor-pointer flex items-center px-1 ${
         isSelected ? 'bg-blue-100 border-blue-300' : 
         isFocused ? 'ring-2 ring-blue-500 ring-inset bg-blue-50' :
+        isColumnSelected ? 'bg-blue-50' :
         isHighlighted ? 'bg-yellow-200' : ''
       }`}
       onClick={(e) => {
