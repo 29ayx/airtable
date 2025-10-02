@@ -18,6 +18,12 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
   // Get utils for invalidating queries
   const utils = api.useUtils();
   
+  // Fetch base data to get the current name
+  const { data: baseData } = api.base.getById.useQuery({ id: baseId });
+  
+  // Use the fetched base name or fallback to prop
+  const currentBaseName = baseData?.name || baseName;
+  
   // Fetch all tables for this base
   const { data: allTables, isLoading: tablesLoading } = api.table.getAllTables.useQuery({ baseId });
   
@@ -140,7 +146,7 @@ export default function EditableTable({ baseId, baseName = "Untitled Base" }: Ed
     <div className="flex flex-1 flex-col bg-white">
       {/* Main Header */}
       <TableHeader 
-        baseName={baseName} 
+        baseName={currentBaseName} 
         baseId={baseId} 
         isAddingTable={createTableMutation.isPending}
       />

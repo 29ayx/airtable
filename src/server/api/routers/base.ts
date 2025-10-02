@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { bases, tables, columns, cells, rows, views } from "@/server/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export const baseRouter = createTRPCRouter({
   create: protectedProcedure
@@ -46,28 +46,46 @@ export const baseRouter = createTRPCRouter({
         }))
       ).returning();
 
-      // Create 3 blank rows
-      const rowIds = [
-        crypto.randomUUID(),
-        crypto.randomUUID(),
-        crypto.randomUUID(),
+      // Create 3 demo rows with sample data
+      const demoData = [
+        { name: "John Doe", age: "30", email: "john@example.com" },
+        { name: "Jane Smith", age: "25", email: "jane@example.com" },
+        { name: "Bob Johnson", age: "35", email: "bob@example.com" },
       ];
 
-      // Create empty cells for each row and column combination
-      const cellsToInsert = [];
-      for (const rowId of rowIds) {
-        for (const column of createdColumns) {
-          cellsToInsert.push({
+      for (let i = 0; i < demoData.length; i++) {
+        const demoRow = demoData[i];
+        
+        // Create row entry
+        const [newRow] = await ctx.db
+          .insert(rows)
+          .values({
             tableId: table.id,
-            columnId: column.id,
-            rowId: rowId,
-            value: "", // Empty cell
-          });
-        }
-      }
+            order: i,
+          })
+          .returning();
 
-      if (cellsToInsert.length > 0) {
-        await ctx.db.insert(cells).values(cellsToInsert);
+        if (newRow) {
+          // Create cells for each column with demo data
+          const cellsToInsert = [];
+          for (const column of createdColumns) {
+            let value = "";
+            if (column.name === "Name") value = demoRow!.name;
+            else if (column.name === "Age") value = demoRow!.age;
+            else if (column.name === "Email") value = demoRow!.email;
+
+            cellsToInsert.push({
+              tableId: table.id,
+              columnId: column.id,
+              rowId: newRow.id,
+              value: value,
+            });
+          }
+
+          if (cellsToInsert.length > 0) {
+            await ctx.db.insert(cells).values(cellsToInsert);
+          }
+        }
       }
       
       return base;
@@ -88,7 +106,7 @@ export const baseRouter = createTRPCRouter({
       const [base] = await ctx.db
         .select()
         .from(bases)
-        .where(eq(bases.id, input.id) && eq(bases.userId, ctx.session.user.id));
+        .where(and(eq(bases.id, input.id), eq(bases.userId, ctx.session.user.id)));
       
       return base;
     }),
@@ -100,7 +118,7 @@ export const baseRouter = createTRPCRouter({
       const [baseToDelete] = await ctx.db
         .select()
         .from(bases)
-        .where(eq(bases.id, input.id) && eq(bases.userId, ctx.session.user.id));
+        .where(and(eq(bases.id, input.id), eq(bases.userId, ctx.session.user.id)));
 
       if (!baseToDelete) {
         throw new Error("Base not found or unauthorized");
